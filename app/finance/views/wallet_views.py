@@ -1,10 +1,22 @@
+from django.db import models as django_models
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from app.finance.models import Wallet
 from app.finance.serializers import WalletSerializer
 from app.finance.services import WalletService
+
+
+WALLET_SEARCH_FIELDS = [
+    field.name
+    for field in Wallet._meta.get_fields()
+    if getattr(field, "attname", None)
+    and field.concrete
+    and isinstance(field, (django_models.CharField, django_models.TextField))
+]
+WALLET_SEARCH_FIELDS += ["owner__username", "owner__email"]
 
 
 @extend_schema_view(
@@ -20,6 +32,9 @@ from app.finance.services import WalletService
 class WalletViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = WalletSerializer
+    filterset_fields = "__all__"
+    ordering_fields = "__all__"
+    search_fields = WALLET_SEARCH_FIELDS
 
     def get_queryset(self):
         return WalletService.list_wallets(self.request.user)

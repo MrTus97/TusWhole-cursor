@@ -1,12 +1,29 @@
+from django.db import models as django_models
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from app.finance.filtersets import TransactionFilterSet
 from app.finance.models import Transaction
 from app.finance.serializers import TransactionSerializer
 from app.finance.services import TransactionService
+
+
+TRANSACTION_SEARCH_FIELDS = [
+    field.name
+    for field in Transaction._meta.get_fields()
+    if getattr(field, "attname", None)
+    and field.concrete
+    and isinstance(field, (django_models.CharField, django_models.TextField))
+]
+TRANSACTION_SEARCH_FIELDS += [
+    "wallet__name",
+    "wallet__owner__username",
+    "category__name",
+    "category__parent__name",
+]
 
 
 @extend_schema_view(
@@ -22,6 +39,9 @@ from app.finance.services import TransactionService
 class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = TransactionSerializer
+    filterset_class = TransactionFilterSet
+    ordering_fields = "__all__"
+    search_fields = TRANSACTION_SEARCH_FIELDS
 
     def get_queryset(self):
         wallet_id = self.request.query_params.get("wallet")

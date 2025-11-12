@@ -1,3 +1,4 @@
+from django.db import models as django_models
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -8,6 +9,21 @@ from app.finance.models import Category
 from app.finance.repositories import WalletRepository
 from app.finance.serializers import CategorySerializer
 from app.finance.services import CategoryService
+
+
+CATEGORY_SEARCH_FIELDS = [
+    field.name
+    for field in Category._meta.get_fields()
+    if getattr(field, "attname", None)
+    and field.concrete
+    and isinstance(field, (django_models.CharField, django_models.TextField))
+]
+CATEGORY_SEARCH_FIELDS += [
+    "wallet__name",
+    "wallet__owner__username",
+    "parent__name",
+    "template__name",
+]
 
 
 @extend_schema_view(
@@ -23,6 +39,9 @@ from app.finance.services import CategoryService
 class CategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CategorySerializer
+    filterset_fields = "__all__"
+    ordering_fields = "__all__"
+    search_fields = CATEGORY_SEARCH_FIELDS
 
     def get_queryset(self):
         wallet_id = self.request.query_params.get("wallet")

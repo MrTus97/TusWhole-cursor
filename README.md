@@ -58,6 +58,7 @@ Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động s
 - `GET /api/finance/categories/?wallet=<id>`: danh sách category của ví.
 - `GET /api/finance/category-templates/`: danh sách master categories để gợi ý.
 - `GET /api/finance/transactions/?wallet=<id>`: danh sách giao dịch theo ví.
+- Toàn bộ endpoints hỗ trợ filter (`?field=value`), sắp xếp (`?ordering=field,-other_field`) và tìm kiếm toàn văn (`?search=keyword`) qua Django Filter & DRF Search/Ordering.
 
 Tất cả endpoints yêu cầu xác thực JWT (sử dụng các endpoint `/api/token/`).
 
