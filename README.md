@@ -1,102 +1,156 @@
-# Dự án Django DRF với PostgreSQL và JWT
+# TusWhole - Hệ thống quản lý tài chính cá nhân
 
-## Yêu cầu hệ thống
+Dự án full-stack quản lý thu chi cá nhân tương tự Money Lover, được xây dựng với Django DRF (backend) và Next.js (frontend).
 
-- Python 3.11+ (khuyến nghị 3.12 trở lên)
-- PostgreSQL (nếu sử dụng cơ sở dữ liệu thật)
+## Cấu trúc dự án
 
-## Thiết lập môi trường
+```
+.
+├── backend/          # Django DRF Backend
+│   ├── app/          # Django apps
+│   │   ├── api/      # API utilities
+│   │   └── finance/  # Module quản lý tài chính
+│   └── TusWhole/     # Django project settings
+└── frontend/         # Next.js Frontend
+    ├── app/          # Next.js App Router
+    └── components/   # React components
+```
 
-1. Tạo và kích hoạt môi trường ảo
+## Backend (Django DRF)
 
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\activate
-   ```
+### Yêu cầu
 
-2. Cài đặt phụ thuộc
+- Python 3.11+
+- PostgreSQL (tùy chọn, mặc định dùng SQLite)
 
-   ```powershell
-   pip install -r requirements.txt
-   ```
+### Cài đặt
 
-3. Sao chép file cấu hình môi trường
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
+```
 
-   ```powershell
-   copy env.example .env
-   ```
+### Cấu hình
 
-   Cập nhật các biến trong `.env` phù hợp với cấu hình của bạn.
+Sao chép `env.example` thành `.env` và cập nhật các biến:
 
-## Biến môi trường chính
+```bash
+copy env.example .env
+```
 
-- `DJANGO_SECRET_KEY`: khoá bí mật của Django.
-- `DJANGO_DEBUG`: `True/False` để bật/tắt chế độ debug.
-- `DJANGO_ALLOWED_HOSTS`: danh sách host, phân tách bằng dấu phẩy.
-- `DATABASE_URL`: chuỗi kết nối PostgreSQL theo chuẩn `postgresql://user:password@host:port/dbname`.
+### Chạy backend
 
-Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động sử dụng SQLite cho môi trường phát triển.
-
-## Cấu trúc chính
-
-- `TusWhole/`: mã nguồn project Django (settings, urls, wsgi/asgi).
-- `app/`: thư mục chứa các Django app, ví dụ `app/api`.
-- `app/finance/`: quản lý ví, giao dịch và nhóm danh mục thu chi.
-- `env.example`: mẫu biến môi trường.
-- `requirements.txt`: danh sách phụ thuộc Python.
-
-## Ứng dụng quản lý thu chi
-
-- `Wallet`: mỗi người dùng có thể sở hữu nhiều ví với tiền tệ, số dư ban đầu và hiện tại.
-- `Category` và `CategoryTemplate`: nhóm giao dịch theo loại (thu/chi/cho vay/đi vay). `CategoryTemplate` là bộ master để gợi ý khi tạo ví mới.
-- `Transaction`: ghi nhận giao dịch theo từng ví, liên kết nhóm, lưu số tiền, ghi chú, thời điểm phát sinh và metadata tuỳ chọn.
-
-### API chính
-
-- `GET /api/finance/wallets/`: danh sách ví của người dùng.
-- `POST /api/finance/wallets/`: tạo ví mới (`copy_master=true/false` để sao chép master categories).
-- `GET /api/finance/categories/?wallet=<id>`: danh sách category của ví.
-- `GET /api/finance/category-templates/`: danh sách master categories để gợi ý.
-- `GET /api/finance/transactions/?wallet=<id>`: danh sách giao dịch theo ví.
-- Toàn bộ endpoints hỗ trợ filter (`?field=value`), sắp xếp (`?ordering=field,-other_field`) và tìm kiếm toàn văn (`?search=keyword`) qua Django Filter & DRF Search/Ordering.
-
-Tất cả endpoints yêu cầu xác thực JWT (sử dụng các endpoint `/api/token/`).
-
-## Di chuyển cơ sở dữ liệu
-
-```powershell
+```bash
+cd backend
 python manage.py migrate
-```
-
-## Seed dữ liệu mẫu
-
-```powershell
-python manage.py seed_finance
-```
-
-- Tạo người dùng demo: `demo / demo1234`.
-- Sinh master categories, ví mặc định và một vài giao dịch mẫu.
-
-## Chạy dự án
-
-```powershell
+python manage.py seed_finance  # Tạo dữ liệu mẫu
 python manage.py runserver
 ```
 
-## Endpoints JWT mặc định
+Backend chạy tại `http://localhost:8000`
 
-- `POST /api/token/`: lấy access token và refresh token.
-- `POST /api/token/refresh/`: làm mới access token.
-- `POST /api/token/verify/`: kiểm tra tính hợp lệ của access token.
+### API Documentation
 
-> Endpoint `/api/token/` trả về thêm thông tin người dùng và thời gian hết hạn của từng token.
+- Swagger UI: `http://localhost:8000/api/docs/`
+- ReDoc: `http://localhost:8000/api/redoc/`
 
-## Tài liệu API (Swagger/Redoc)
+### Tài khoản demo
 
-- `GET /api/schema/`: xuất file schema OpenAPI (JSON).
-- `GET /api/docs/`: giao diện Swagger UI để thử nghiệm API.
-- `GET /api/redoc/`: giao diện Redoc để xem tài liệu API.
+- Username: `demo`
+- Password: `demo1234`
 
-## Kiểm tra nhanh
+## Frontend (Next.js)
 
-- `GET /api/health/`: kiểm tra tình trạng dịch vụ (không yêu cầu xác thực).
+### Yêu cầu
+
+- Node.js 18+
+- npm hoặc yarn
+
+### Cài đặt
+
+```bash
+cd frontend
+npm install
+```
+
+### Cấu hình
+
+Tạo file `.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### Chạy frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+Frontend chạy tại `http://localhost:3000`
+
+## Tính năng
+
+### Backend
+
+- ✅ JWT Authentication
+- ✅ Quản lý ví (Wallet)
+- ✅ Quản lý giao dịch (Transaction) với 4 loại: Thu, Chi, Cho vay, Đi vay
+- ✅ Quản lý danh mục (Category) với cấu trúc phân cấp
+- ✅ Master Category Templates để gợi ý khi tạo ví
+- ✅ Filter, Search, Ordering tự động
+- ✅ Swagger/OpenAPI documentation
+- ✅ Cấu trúc code theo pattern: Models → Repositories → Services → Views
+
+### Frontend
+
+- ✅ Đăng nhập với JWT
+- ✅ Quản lý ví (tạo, xem, xóa)
+- ✅ Quản lý giao dịch (tạo, xem, xóa)
+- ✅ Tự động refresh token
+- ✅ Protected routes
+- ✅ UI với shadcn/ui components
+
+## API Endpoints chính
+
+### Authentication
+- `POST /api/token/` - Đăng nhập, lấy JWT token
+- `POST /api/token/refresh/` - Làm mới access token
+- `POST /api/token/verify/` - Xác thực token
+
+### Finance
+- `GET /api/finance/wallets/` - Danh sách ví
+- `POST /api/finance/wallets/` - Tạo ví mới
+- `GET /api/finance/transactions/` - Danh sách giao dịch
+- `POST /api/finance/transactions/` - Tạo giao dịch mới
+- `GET /api/finance/categories/` - Danh sách danh mục
+- `GET /api/finance/category-templates/` - Danh sách master categories
+
+Tất cả endpoints hỗ trợ filter, search và ordering. Xem Swagger UI để biết chi tiết.
+
+## Phát triển
+
+### Backend
+
+```bash
+cd backend
+python manage.py makemigrations
+python manage.py migrate
+python manage.py runserver
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+## License
+
+MIT
+
