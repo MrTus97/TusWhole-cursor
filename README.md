@@ -41,8 +41,15 @@ Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động s
 
 - `TusWhole/`: mã nguồn project Django (settings, urls, wsgi/asgi).
 - `app/`: thư mục chứa các Django app, ví dụ `app/api`.
+- `app/finance/`: quản lý ví, giao dịch và nhóm danh mục thu chi.
 - `env.example`: mẫu biến môi trường.
 - `requirements.txt`: danh sách phụ thuộc Python.
+
+## Ứng dụng quản lý thu chi
+
+- `Wallet`: mỗi người dùng có thể sở hữu nhiều ví với tiền tệ, số dư ban đầu và hiện tại.
+- `Category` và `CategoryTemplate`: nhóm giao dịch theo loại (thu/chi/cho vay/đi vay). `CategoryTemplate` là bộ master để gợi ý khi tạo ví mới.
+- `Transaction`: ghi nhận giao dịch theo từng ví, liên kết nhóm, lưu số tiền, ghi chú, thời điểm phát sinh và metadata tuỳ chọn.
 
 ## Di chuyển cơ sở dữ liệu
 

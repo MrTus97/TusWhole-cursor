@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'drf_spectacular_sidecar',
     'app.api',
+    'app.finance',
 ]
 
 MIDDLEWARE = [
