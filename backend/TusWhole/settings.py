@@ -196,3 +196,26 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Session settings for OAuth
+SESSION_COOKIE_SAMESITE = 'Lax'  # Cho phép gửi cookie trong cross-site requests
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # False cho development (localhost), True cho production (HTTPS)
+SESSION_COOKIE_AGE = 600  # 10 phút
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Cache settings for OAuth state
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+    }
+}
+
+# OAuth Settings
+GOOGLE_OAUTH2_CLIENT_ID = os.getenv("GOOGLE_OAUTH2_CLIENT_ID", None)
+GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET", None)
+FACEBOOK_APP_ID = os.getenv("FACEBOOK_APP_ID", None)
+FACEBOOK_APP_SECRET = os.getenv("FACEBOOK_APP_SECRET", None)
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", None)
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", None)

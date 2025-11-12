@@ -11,6 +11,7 @@ class ApiClient {
       headers: {
         "Content-Type": "application/json",
       },
+      withCredentials: true, // Gửi cookies để giữ session
     });
 
     // Add request interceptor to include auth token
@@ -116,6 +117,22 @@ class ApiClient {
 
   async getCategoryTemplates() {
     const response = await this.client.get("/api/finance/category-templates/");
+    return response.data;
+  }
+
+  // OAuth methods
+  async getOAuthUrl(provider: "google" | "facebook" | "github", redirectUri?: string) {
+    const response = await this.client.get(`/api/oauth/${provider}/url/`, {
+      params: redirectUri ? { redirect_uri: redirectUri } : {},
+    });
+    return response.data.auth_url;
+  }
+
+  async handleOAuthCallback(provider: "google" | "facebook" | "github", code: string, state: string) {
+    const response = await this.client.post(`/api/oauth/${provider}/callback/`, {
+      code,
+      state,
+    });
     return response.data;
   }
 }
