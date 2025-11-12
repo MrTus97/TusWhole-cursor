@@ -51,11 +51,30 @@ Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động s
 - `Category` và `CategoryTemplate`: nhóm giao dịch theo loại (thu/chi/cho vay/đi vay). `CategoryTemplate` là bộ master để gợi ý khi tạo ví mới.
 - `Transaction`: ghi nhận giao dịch theo từng ví, liên kết nhóm, lưu số tiền, ghi chú, thời điểm phát sinh và metadata tuỳ chọn.
 
+### API chính
+
+- `GET /api/finance/wallets/`: danh sách ví của người dùng.
+- `POST /api/finance/wallets/`: tạo ví mới (`copy_master=true/false` để sao chép master categories).
+- `GET /api/finance/categories/?wallet=<id>`: danh sách category của ví.
+- `GET /api/finance/category-templates/`: danh sách master categories để gợi ý.
+- `GET /api/finance/transactions/?wallet=<id>`: danh sách giao dịch theo ví.
+
+Tất cả endpoints yêu cầu xác thực JWT (sử dụng các endpoint `/api/token/`).
+
 ## Di chuyển cơ sở dữ liệu
 
 ```powershell
 python manage.py migrate
 ```
+
+## Seed dữ liệu mẫu
+
+```powershell
+python manage.py seed_finance
+```
+
+- Tạo người dùng demo: `demo / demo1234`.
+- Sinh master categories, ví mặc định và một vài giao dịch mẫu.
 
 ## Chạy dự án
 
