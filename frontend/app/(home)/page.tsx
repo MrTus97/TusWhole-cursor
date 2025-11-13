@@ -1,9 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Wallet, Users, Settings } from "lucide-react";
+import { Wallet, Users, Settings, BookOpen } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
@@ -24,6 +30,14 @@ export default function HomePage() {
       icon: Users,
       href: "/contacts",
       color: "bg-green-500",
+    },
+    {
+      id: "journal",
+      title: "Nhật ký",
+      description: "Ghi chú những khoảnh khắc",
+      icon: BookOpen,
+      href: "/journal",
+      color: "bg-orange-500",
     },
     {
       id: "settings",
@@ -61,7 +75,9 @@ export default function HomePage() {
               onClick={() => handleModuleClick(module.href)}
             >
               <CardHeader>
-                <div className={`${module.color} w-16 h-16 rounded-lg flex items-center justify-center mb-4`}>
+                <div
+                  className={`${module.color} w-16 h-16 rounded-lg flex items-center justify-center mb-4`}
+                >
                   <Icon className="w-8 h-8 text-white" />
                 </div>
                 <CardTitle className="text-xl">{module.title}</CardTitle>
@@ -88,4 +104,3 @@ export default function HomePage() {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { apiClient } from "@/lib/api";
@@ -19,25 +19,31 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      router.replace("/finance");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       await login(username, password);
-      router.push("/finance");
+      router.replace("/finance");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } };
       setError(
         error.response?.data?.detail || "Đăng nhập thất bại. Vui lòng thử lại."
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -78,7 +84,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                disabled={loading}
+                disabled={submitting}
               />
             </div>
             <div className="space-y-2">
@@ -89,7 +95,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={loading}
+                disabled={submitting}
               />
             </div>
             {error && (
@@ -97,8 +103,8 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+            <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
           </form>
 
@@ -119,7 +125,7 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 onClick={() => handleOAuthLogin("google")}
-                disabled={loading}
+                disabled={submitting}
                 className="w-full"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -147,7 +153,7 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 onClick={() => handleOAuthLogin("facebook")}
-                disabled={loading}
+                disabled={submitting}
                 className="w-full"
               >
                 <svg
@@ -164,7 +170,7 @@ export default function LoginPage() {
                 type="button"
                 variant="outline"
                 onClick={() => handleOAuthLogin("github")}
-                disabled={loading}
+                disabled={submitting}
                 className="w-full"
               >
                 <svg

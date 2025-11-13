@@ -33,4 +33,5 @@ urlpatterns = [
     path('api/finance/', include('app.finance.urls')),
     path('api/contacts/', include('app.contacts.urls')),
     path('api/custom-fields/', include('app.custom_fields.urls')),
+    path('api/journal/', include('app.journal.urls')),
 ]

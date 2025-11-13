@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'app.finance',
     'app.contacts',
     'app.custom_fields',
+    'app.journal',
 ]
 
 MIDDLEWARE = [

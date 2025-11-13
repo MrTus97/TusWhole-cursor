@@ -37,8 +37,10 @@ npm run dev
     - `finance/` - Module quản lý tài chính
       - `wallets/` - Quản lý ví
       - `transactions/` - Quản lý giao dịch
+  - `journal/` - Module ghi nhật ký rich-text với CKEditor
 - `components/` - React components
   - `ui/` - shadcn/ui components
+- `components/rich-text-editor.tsx` - Wrapper CKEditor cho Next.js
 - `lib/` - Utilities
   - `api.ts` - API client
   - `auth.tsx` - Auth context
@@ -48,5 +50,6 @@ npm run dev
 - ✅ Đăng nhập với JWT
 - ✅ Quản lý ví (tạo, xem, xóa)
 - ✅ Quản lý giao dịch (tạo, xem, xóa)
+- ✅ Ghi nhật ký với CKEditor (bảng, chèn ảnh, lọc theo hashtag)
 - ✅ Tự động refresh token
 - ✅ Protected routes

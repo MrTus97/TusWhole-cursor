@@ -198,6 +198,35 @@ class ApiClient {
     const response = await this.client.get("/api/contacts/filter-metadata/contacts/");
     return response.data;
   }
+
+  // Journal methods
+  async getJournalEntries(params?: any) {
+    const response = await this.client.get("/api/journal/entries/", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createJournalEntry(data: any) {
+    const response = await this.client.post("/api/journal/entries/", data);
+    return response.data;
+  }
+
+  async updateJournalEntry(id: number, data: any) {
+    const response = await this.client.patch(`/api/journal/entries/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteJournalEntry(id: number) {
+    await this.client.delete(`/api/journal/entries/${id}/`);
+  }
+
+  async getJournalHashtags(params?: any) {
+    const response = await this.client.get("/api/journal/hashtags/", {
+      params,
+    });
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

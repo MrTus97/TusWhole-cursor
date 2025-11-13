@@ -42,6 +42,7 @@ Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động s
 - `TusWhole/`: mã nguồn project Django (settings, urls, wsgi/asgi).
 - `app/`: thư mục chứa các Django app, ví dụ `app/api`.
 - `app/finance/`: quản lý ví, giao dịch và nhóm danh mục thu chi.
+- `app/journal/`: quản lý nhật ký cá nhân (nội dung HTML, hashtag, filter/search).
 - `env.example`: mẫu biến môi trường.
 - `requirements.txt`: danh sách phụ thuộc Python.
 
@@ -61,6 +62,19 @@ Nếu `DATABASE_URL` không được thiết lập, dự án sẽ tự động s
 - Toàn bộ endpoints hỗ trợ filter (`?field=value`), sắp xếp (`?ordering=field,-other_field`) và tìm kiếm toàn văn (`?search=keyword`) qua Django Filter & DRF Search/Ordering.
 
 Tất cả endpoints yêu cầu xác thực JWT (sử dụng các endpoint `/api/token/`).
+
+## Ứng dụng nhật ký
+
+- Lưu nội dung rich-text (CKEditor) và giữ cả bản HTML lẫn văn bản thuần (`bleach` được sử dụng để làm sạch nội dung).
+- Tổ chức hashtag theo người dùng, tự động chuẩn hoá để dễ tìm kiếm/lọc.
+- Filter theo mốc thời gian, hashtag và hỗ trợ full-text search trên nội dung đã làm sạch.
+- Endpoints chính (tất cả yêu cầu xác thực JWT):
+  - `GET /api/journal/entries/`: danh sách nhật ký (hỗ trợ `search`, `hashtags`, `ordering`, filter ngày).
+  - `POST /api/journal/entries/`: tạo nhật ký mới (nhận `content` dạng HTML).
+  - `PATCH /api/journal/entries/<id>/`: cập nhật nhật ký.
+  - `DELETE /api/journal/entries/<id>/`: xoá nhật ký.
+  - `GET /api/journal/hashtags/`: danh sách hashtag hiện có của người dùng.
+  - `POST /api/journal/uploads/`: upload ảnh (dùng cho CKEditor Simple Upload, trả về URL tuyệt đối).
 
 ## Di chuyển cơ sở dữ liệu
 

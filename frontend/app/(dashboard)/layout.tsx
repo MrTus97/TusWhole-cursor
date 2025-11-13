@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import { ModuleMenu } from "@/components/module-menu";
 import { Footer } from "@/components/footer";
-import { Wallet, CreditCard, List, Users, FileText, Settings } from "lucide-react";
+import { Wallet, CreditCard, List, Users, FileText, Settings, BookOpen } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -55,6 +55,16 @@ export default function DashboardLayout({
         href: "/contacts",
         items: [
           { label: "Danh sách liên hệ", href: "/contacts", icon: <Users className="w-4 h-4" /> },
+        ],
+      };
+    }
+    if (pathname?.startsWith("/journal")) {
+      return {
+        title: "Nhật ký",
+        icon: <BookOpen className="w-5 h-5" />,
+        href: "/journal",
+        items: [
+          { label: "Nhật ký", href: "/journal", icon: <BookOpen className="w-4 h-4" /> },
         ],
       };
     }
