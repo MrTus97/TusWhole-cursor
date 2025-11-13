@@ -25,6 +25,10 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { DataTable } from "@/components/data-table";
+import { FilterBuilder, FilterCondition, FilterField } from "@/components/filter-builder";
+import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
 
 interface CustomField {
   id: number;
@@ -62,6 +66,7 @@ const TARGET_MODELS = [
 ];
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -82,21 +87,47 @@ export default function SettingsPage() {
     is_active: true,
   });
   const [optionsText, setOptionsText] = useState("");
+  const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
+  const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
+  const [totalCount, setTotalCount] = useState<number>(0);
 
   useEffect(() => {
     loadData();
+    apiClient.getCustomFieldFilterMetadata().then((data) => {
+      setFilterFields(data.fields || []);
+      setDefaultColumns(data.default_columns || []);
+      if (typeof data.default_page_size === "number") {
+        setDefaultPageSize(data.default_page_size);
+      }
+    }).catch((e) => console.error("Error loading custom field metadata:", e));
   }, []);
 
   const loadData = async () => {
     try {
-      const data = await apiClient.getCustomFields();
-      setCustomFields(Array.isArray(data) ? data : data.results || []);
+      const params = buildFilterParams(filterConditions);
+      const pageSize = parseInt(new URLSearchParams(searchParams?.toString()).get("page_size") || "", 10) || defaultPageSize;
+      const page = parseInt(new URLSearchParams(searchParams?.toString()).get("page") || "1", 10) || 1;
+      const ordering = new URLSearchParams(searchParams?.toString()).get("ordering") || "";
+      const data = await apiClient.getCustomFields({ ...params, page_size: pageSize, page, ordering: ordering || undefined });
+      const list = Array.isArray(data) ? (data as CustomField[]) : (data.results || []);
+      setCustomFields(list);
+      setTotalCount(Array.isArray(data) ? list.length : (data.count || 0));
     } catch (error) {
       console.error("Error loading custom fields:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Parse filter từ URL khi đã có fields
+    if (filterFields.length > 0 && searchParams) {
+      const urlConds = parseFilterFromQuery(new URLSearchParams(searchParams.toString()), filterFields);
+      if (urlConds.length > 0) setFilterConditions(urlConds);
+    }
+  }, [filterFields, searchParams]);
 
   const handleOpenDialog = (field?: CustomField) => {
     if (field) {
@@ -208,6 +239,30 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: "Cài đặt" }]} />
+      <FilterBuilder
+        fields={filterFields}
+        conditions={filterConditions}
+        onChange={setFilterConditions}
+        initialDisplayColumns={(typeof window !== "undefined" ? new URLSearchParams(searchParams?.toString()).get("columns") : null)?.split(",").filter(Boolean) || defaultColumns}
+        initialPageSize={parseInt(new URLSearchParams(searchParams?.toString()).get("page_size") || "", 10) || defaultPageSize}
+        onApply={(columns, pageSize) => {
+          setLoading(true);
+          const queryString = buildFilterQueryString(filterConditions);
+          const colsParam = columns && columns.length > 0 ? `columns=${columns.join(",")}` : "";
+          const pageSizeParam = pageSize ? `page_size=${pageSize}` : "";
+          const ordering = new URLSearchParams(searchParams?.toString()).get("ordering") || "";
+          const orderingParam = ordering ? `ordering=${ordering}` : "";
+          const combined = [queryString, colsParam, pageSizeParam, orderingParam].filter(Boolean).join("&");
+          const newUrl = combined ? `/settings?${combined}` : "/settings";
+          window.history.replaceState(null, "", newUrl);
+          apiClient.getCustomFields({ ...buildFilterParams(filterConditions), page_size: pageSize || undefined, ordering: ordering || undefined }).then((data) => {
+            const list = Array.isArray(data) ? (data as CustomField[]) : (data.results || []);
+            setCustomFields(list);
+            setTotalCount(Array.isArray(data) ? list.length : (data.count || 0));
+            setLoading(false);
+          }).catch(() => setLoading(false));
+        }}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Cài đặt</h1>
@@ -459,65 +514,58 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {customFields.length === 0 ? (
-            <p className="text-center text-gray-600 py-8">
-              Chưa có custom field nào. Hãy tạo custom field đầu tiên.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tên</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Loại</TableHead>
-                  <TableHead>Bắt buộc</TableHead>
-                  <TableHead>Tìm kiếm</TableHead>
-                  <TableHead>Lọc</TableHead>
-                  <TableHead>Thứ tự</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {customFields.map((field) => (
-                  <TableRow key={field.id}>
-                    <TableCell className="font-medium">{field.name}</TableCell>
-                    <TableCell>{getTargetModelLabel(field.target_model)}</TableCell>
-                    <TableCell>{getFieldTypeLabel(field.field_type)}</TableCell>
-                    <TableCell>{field.is_required ? "Có" : "Không"}</TableCell>
-                    <TableCell>{field.is_searchable ? "Có" : "Không"}</TableCell>
-                    <TableCell>{field.is_filterable ? "Có" : "Không"}</TableCell>
-                    <TableCell>{field.order}</TableCell>
-                    <TableCell>
-                      {field.is_active ? (
-                        <span className="text-green-600">Hoạt động</span>
-                      ) : (
-                        <span className="text-gray-400">Tắt</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenDialog(field)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(field.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          {(() => {
+            const c = new URLSearchParams(searchParams?.toString()).get("columns");
+            const selected = (c && c.length > 0 ? c : (defaultColumns.length > 0 ? defaultColumns.join(",") : "name,field_type,target_model,is_active,order")).split(",").filter(Boolean);
+            const labelMap = filterFields.reduce<Record<string, string>>((acc, f) => { acc[f.name] = f.label; return acc; }, {});
+            const renderCell = (key: string, f: CustomField) => {
+              switch (key) {
+                case "name": return f.name || "-";
+                case "description": return f.description || "-";
+                case "field_type": return getFieldTypeLabel(f.field_type);
+                case "target_model": return getTargetModelLabel(f.target_model);
+                case "is_required": return f.is_required ? "Có" : "Không";
+                case "is_searchable": return f.is_searchable ? "Có" : "Không";
+                case "is_filterable": return f.is_filterable ? "Có" : "Không";
+                case "order": return String(f.order ?? "-");
+                case "is_active": return f.is_active ? "Kích hoạt" : "Tắt";
+                default: return (f as unknown as Record<string, any>)[key] ?? "-";
+              }
+            };
+            return (
+              <DataTable
+                data={customFields}
+                totalCount={totalCount}
+                selectedColumns={selected}
+                labelMap={labelMap}
+                pageSize={parseInt(new URLSearchParams(searchParams?.toString()).get("page_size") || "", 10) || null}
+                defaultPageSize={defaultPageSize}
+                basePath="/settings"
+                currentOrdering={new URLSearchParams(searchParams?.toString()).get("ordering") || ""}
+                renderCell={renderCell}
+                renderActions={(field: CustomField) => (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenDialog(field)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDelete(field.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                onRequestData={({ ordering, page, page_size }) => {
+                  setLoading(true);
+                  const params = buildFilterParams(filterConditions);
+                  apiClient.getCustomFields({ ...params, ordering, page, page_size }).then((data) => {
+                    const list = Array.isArray(data) ? (data as CustomField[]) : (data.results || []);
+                    setCustomFields(list);
+                    setTotalCount(Array.isArray(data) ? list.length : (data.count || 0));
+                    setLoading(false);
+                  }).catch(() => setLoading(false));
+                }}
+              />
+            );
+          })()}
         </CardContent>
       </Card>
     </div>

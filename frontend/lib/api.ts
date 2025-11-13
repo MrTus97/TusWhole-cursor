@@ -212,6 +212,16 @@ class ApiClient {
     return response.data;
   }
 
+  async getJournalFilterMetadata() {
+    const response = await this.client.get("/api/journal/filter-metadata/entries/");
+    return response.data;
+  }
+
+  async getCustomFieldFilterMetadata() {
+    const response = await this.client.get("/api/custom-fields/filter-metadata/custom-fields/");
+    return response.data;
+  }
+
   // Journal methods
   async getJournalEntries(params?: any) {
     const response = await this.client.get("/api/journal/entries/", {

@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 
 from app.finance.models import Wallet, Transaction
 from app.custom_fields.models import CustomField
@@ -59,7 +60,9 @@ def wallet_filter_metadata(request):
             ]
         fields.append(field_data)
 
-    return Response({"fields": fields})
+    default_columns = ["name", "description", "currency", "current_balance"]
+    default_page_size = api_settings.PAGE_SIZE or 100
+    return Response({"fields": fields, "default_columns": default_columns, "default_page_size": default_page_size})
 
 
 @api_view(["GET"])
@@ -123,6 +126,9 @@ def transaction_filter_metadata(request):
             ]
         fields.append(field_data)
 
-    return Response({"fields": fields})
-
-
+    default_columns = ["wallet", "category",
+                       "transaction_type", "amount", "occurred_at", "note"]
+    default_columns = ["wallet", "category",
+                       "transaction_type", "amount", "occurred_at", "note"]
+    default_page_size = api_settings.PAGE_SIZE or 100
+    return Response({"fields": fields, "default_columns": default_columns, "default_page_size": default_page_size})

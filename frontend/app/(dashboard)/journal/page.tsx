@@ -16,12 +16,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { apiClient } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import {
+  FilterBuilder,
+  FilterCondition,
+  FilterField,
+} from "@/components/filter-builder";
+import {
+  buildFilterParams,
+  buildFilterQueryString,
+  parseFilterFromQuery,
+} from "@/lib/filter-utils";
 
 interface JournalEntry {
   id: number;
@@ -119,9 +131,18 @@ function hashtagsToString(hashtags: string[]): string {
 }
 
 export default function JournalPage() {
+  const searchParams = useSearchParams();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>(
+    []
+  );
+  const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
+  const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
+  const [totalCount, setTotalCount] = useState<number>(0);
+  // Legacy quick filters (giữ lại để tham khảo, có thể bỏ nếu không cần):
   const [search, setSearch] = useState("");
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -135,15 +156,28 @@ export default function JournalPage() {
     setLoading(true);
     setEntryError(null);
     try {
-      const params: Record<string, string> = {};
-      if (search.trim()) {
-        params.search = search.trim();
-      }
-      if (selectedHashtags.length > 0) {
-        params.hashtags = selectedHashtags.join(",");
-      }
-      const data = await apiClient.getJournalEntries(params);
-      setEntries(normalizeApiList<JournalEntry>(data));
+      const params = buildFilterParams(filterConditions);
+      const pageSize =
+        parseInt(
+          new URLSearchParams(searchParams?.toString()).get("page_size") || "",
+          10
+        ) || defaultPageSize;
+      const page =
+        parseInt(
+          new URLSearchParams(searchParams?.toString()).get("page") || "1",
+          10
+        ) || 1;
+      const ordering =
+        new URLSearchParams(searchParams?.toString()).get("ordering") || "";
+      const data = await apiClient.getJournalEntries({
+        ...params,
+        page_size: pageSize,
+        page,
+        ordering: ordering || undefined,
+      });
+      const list = normalizeApiList<JournalEntry>(data);
+      setEntries(list);
+      setTotalCount(Array.isArray(data) ? list.length : (data as any).count || 0);
     } catch (error) {
       console.error("Error loading journal entries:", error);
       setEntryError("Không thể tải danh sách nhật ký. Vui lòng thử lại sau.");
@@ -151,7 +185,7 @@ export default function JournalPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, selectedHashtags]);
+  }, [filterConditions, searchParams, defaultPageSize]);
 
   const loadHashtags = useCallback(async () => {
     try {
@@ -173,6 +207,35 @@ export default function JournalPage() {
   useEffect(() => {
     loadEntries();
   }, [loadEntries]);
+
+  useEffect(() => {
+    // Load filter metadata
+    apiClient
+      .getJournalFilterMetadata()
+      .then((data) => {
+        setFilterFields(data.fields || []);
+        setDefaultColumns(data.default_columns || []);
+        if (typeof data.default_page_size === "number") {
+          setDefaultPageSize(data.default_page_size);
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading journal filter metadata:", error);
+      });
+  }, []);
+
+  useEffect(() => {
+    // Parse filter từ URL khi có filterFields
+    if (filterFields.length > 0 && searchParams) {
+      const urlConds = parseFilterFromQuery(
+        new URLSearchParams(searchParams.toString()),
+        filterFields
+      );
+      if (urlConds.length > 0) {
+        setFilterConditions(urlConds);
+      }
+    }
+  }, [filterFields, searchParams]);
 
   useEffect(() => {
     loadHashtags();
@@ -271,6 +334,55 @@ export default function JournalPage() {
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: "Nhật ký" }]} />
+      <FilterBuilder
+        fields={filterFields}
+        conditions={filterConditions}
+        onChange={setFilterConditions}
+        initialDisplayColumns={
+          (typeof window !== "undefined"
+            ? new URLSearchParams(searchParams?.toString()).get("columns")
+            : null
+          )
+            ?.split(",")
+            .filter(Boolean) || defaultColumns
+        }
+        initialPageSize={
+          parseInt(
+            new URLSearchParams(searchParams?.toString()).get("page_size") || "",
+            10
+          ) || defaultPageSize
+        }
+        onApply={(columns, pageSize) => {
+          setLoading(true);
+          const queryString = buildFilterQueryString(filterConditions);
+          const colsParam =
+            columns && columns.length > 0 ? `columns=${columns.join(",")}` : "";
+          const pageSizeParam = pageSize ? `page_size=${pageSize}` : "";
+          const ordering =
+            new URLSearchParams(searchParams?.toString()).get("ordering") || "";
+          const orderingParam = ordering ? `ordering=${ordering}` : "";
+          const combined = [queryString, colsParam, pageSizeParam, orderingParam]
+            .filter(Boolean)
+            .join("&");
+          const newUrl = combined ? `/journal?${combined}` : "/journal";
+          window.history.replaceState(null, "", newUrl);
+          apiClient
+            .getJournalEntries({
+              ...buildFilterParams(filterConditions),
+              page_size: pageSize || undefined,
+              ordering: ordering || undefined,
+            })
+            .then((data) => {
+              const list = normalizeApiList<JournalEntry>(data);
+              setEntries(list);
+              setTotalCount(
+                Array.isArray(data) ? list.length : (data as any).count || 0
+              );
+              setLoading(false);
+            })
+            .catch(() => setLoading(false));
+        }}
+      />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -371,55 +483,115 @@ export default function JournalPage() {
           ký&rdquo;.
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {entries.map((entry) => (
-            <Card key={entry.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-start justify-between gap-4">
-                  <span>{entry.title || "Không tiêu đề"}</span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openEditDialog(entry)}
-                    >
-                      Sửa
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(entry)}
-                    >
-                      Xoá
-                    </Button>
-                  </div>
-                </CardTitle>
-                <CardDescription>
-                  Viết lúc {formatDisplayDate(entry.written_at)} • Cập nhật{" "}
-                  {formatDisplayDate(entry.updated_at)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div
-                  className="prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: entry.content }}
-                />
-                {entry.hashtags && entry.hashtags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {entry.hashtags.map((tag) => (
-                      <span
-                        key={`${entry.id}-${tag}`}
-                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+        <Card>
+          <CardHeader>
+            <CardTitle>Danh sách nhật ký</CardTitle>
+            <CardDescription>Tất cả các bài viết của bạn</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              const columnsParam = new URLSearchParams(
+                searchParams?.toString()
+              ).get("columns");
+              const selectedColumns = (
+                columnsParam && columnsParam.length > 0
+                  ? columnsParam
+                  : defaultColumns.length > 0
+                  ? defaultColumns.join(",")
+                  : "title,written_at,updated_at,hashtags"
+              )
+                .split(",")
+                .filter(Boolean);
+              const labelMap = filterFields.reduce<Record<string, string>>(
+                (acc, f) => {
+                  acc[f.name] = f.label;
+                  return acc;
+                },
+                {}
+              );
+              const renderCell = (key: string, e: JournalEntry) => {
+                switch (key) {
+                  case "title":
+                    return e.title || "Không tiêu đề";
+                  case "written_at":
+                    return formatDisplayDate(e.written_at);
+                  case "updated_at":
+                    return formatDisplayDate(e.updated_at);
+                  case "hashtags":
+                    return e.hashtags && e.hashtags.length > 0
+                      ? e.hashtags.join(", ")
+                      : "-";
+                  default:
+                    return (e as unknown as Record<string, any>)[key] ?? "-";
+                }
+              };
+              return (
+                <DataTable
+                  data={entries}
+                  totalCount={totalCount}
+                  selectedColumns={selectedColumns}
+                  labelMap={labelMap}
+                  pageSize={
+                    parseInt(
+                      new URLSearchParams(searchParams?.toString()).get(
+                        "page_size"
+                      ) || "",
+                      10
+                    ) || null
+                  }
+                  defaultPageSize={defaultPageSize}
+                  basePath="/journal"
+                  currentOrdering={
+                    new URLSearchParams(searchParams?.toString()).get(
+                      "ordering"
+                    ) || ""
+                  }
+                  renderCell={renderCell}
+                  renderActions={(entry: JournalEntry) => (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditDialog(entry)}
                       >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                        Sửa
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(entry)}
+                      >
+                        Xoá
+                      </Button>
+                    </div>
+                  )}
+                  mapKeyToOrderingField={(key: string) => key}
+                  onRequestData={({ ordering, page, page_size }) => {
+                    setLoading(true);
+                    apiClient
+                      .getJournalEntries({
+                        ...buildFilterParams(filterConditions),
+                        ordering: ordering || undefined,
+                        page: page || undefined,
+                        page_size: page_size || undefined,
+                      })
+                      .then((data) => {
+                        const list = normalizeApiList<JournalEntry>(data);
+                        setEntries(list);
+                        setTotalCount(
+                          Array.isArray(data)
+                            ? list.length
+                            : (data as any).count || 0
+                        );
+                        setLoading(false);
+                      })
+                      .catch(() => setLoading(false));
+                  }}
+                />
+              );
+            })()}
+          </CardContent>
+        </Card>
       )}
 
       <Dialog

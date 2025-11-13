@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 
 from app.contacts.models import Contact
 from app.contacts.models.choices import ImportanceLevel
@@ -87,5 +88,19 @@ def contact_filter_metadata(request):
             ]
         fields.append(field_data)
 
-    return Response({"fields": fields})
-
+    default_columns = [
+        "full_name",
+        "nickname",
+        "phone_number",
+        "occupation",
+        "importance",
+        "date_of_birth",
+    ]
+    default_page_size = api_settings.PAGE_SIZE or 100
+    return Response(
+        {
+            "fields": fields,
+            "default_columns": default_columns,
+            "default_page_size": default_page_size,
+        }
+    )

@@ -8,14 +8,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { FilterBuilder, FilterField, FilterCondition } from "@/components/filter-builder";
 import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -44,7 +37,9 @@ export default function TransactionsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
   const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [formData, setFormData] = useState({
     wallet: "",
     category: "",
@@ -53,6 +48,13 @@ export default function TransactionsPage() {
     note: "",
     occurred_at: new Date().toISOString().slice(0, 16),
   });
+  const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
+
+  const getPageSizeFromUrl = () => {
+    const ps = new URLSearchParams(searchParams?.toString() || "").get("page_size");
+    const n = ps ? parseInt(ps, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
   useEffect(() => {
     loadData();
@@ -102,6 +104,10 @@ export default function TransactionsPage() {
         return field;
       });
       setFilterFields(fields);
+      setDefaultColumns(data.default_columns || []);
+      if (typeof data.default_page_size === "number") {
+        setDefaultPageSize(data.default_page_size);
+      }
     } catch (error) {
       console.error("Error loading filter metadata:", error);
     }
@@ -231,7 +237,26 @@ export default function TransactionsPage() {
         fields={filterFields}
         conditions={filterConditions}
         onChange={setFilterConditions}
-        onApply={handleApplyFilter}
+        initialDisplayColumns={(typeof window !== "undefined" ? new URLSearchParams(searchParams?.toString()).get("columns") : null)?.split(",").filter(Boolean) || defaultColumns}
+        initialPageSize={getPageSizeFromUrl() ?? defaultPageSize}
+        onApply={(columns, pageSize) => {
+          setLoading(true);
+          const filterParams = buildFilterParams(filterConditions);
+          const queryString = buildFilterQueryString(filterConditions);
+          const colsParam = columns && columns.length > 0 ? `columns=${columns.join(",")}` : "";
+          const pageSizeParam = pageSize ? `page_size=${pageSize}` : "";
+          const combined = [queryString, colsParam, pageSizeParam].filter(Boolean).join("&");
+          const newUrl = combined ? `/finance/transactions?${combined}` : "/finance/transactions";
+          router.push(newUrl);
+          apiClient.getTransactions({ ...filterParams, page_size: pageSize || undefined }).then((data) => {
+            setTransactions(data.results || data);
+            setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
+            setLoading(false);
+          }).catch((error) => {
+            console.error("Error loading transactions:", error);
+            setLoading(false);
+          });
+        }}
       />
       <div className="flex justify-between items-center">
         <div>
@@ -372,53 +397,62 @@ export default function TransactionsPage() {
           <CardDescription>Tất cả các giao dịch của bạn</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ví</TableHead>
-                <TableHead>Danh mục</TableHead>
-                <TableHead>Loại</TableHead>
-                <TableHead>Số tiền</TableHead>
-                <TableHead>Thời gian</TableHead>
-                <TableHead>Ghi chú</TableHead>
-                <TableHead>Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{transaction.wallet?.name || "-"}</TableCell>
-                  <TableCell>{transaction.category?.name || "-"}</TableCell>
-                  <TableCell
-                    className={getTransactionTypeColor(
-                      transaction.transaction_type
-                    )}
+          {(() => {
+            const c = new URLSearchParams(searchParams?.toString()).get("columns");
+            const selected = (c && c.length > 0 ? c : (defaultColumns.length > 0 ? defaultColumns.join(",") : "wallet,category,transaction_type,amount,occurred_at,note")).split(",").filter(Boolean);
+            const labelMap = filterFields.reduce<Record<string, string>>((acc, f) => { acc[f.name] = f.label; return acc; }, {});
+            const renderCell = (key: string, t: any) => {
+              switch (key) {
+                case "wallet": return t.wallet?.name || "-";
+                case "category": return t.category?.name || "-";
+                case "transaction_type":
+                  return (
+                    <span className={getTransactionTypeColor(t.transaction_type)}>
+                      {getTransactionTypeLabel(t.transaction_type)}
+                    </span>
+                  );
+                case "amount":
+                  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: t.wallet?.currency || "VND" }).format(parseFloat(t.amount));
+                case "occurred_at":
+                  return t.occurred_at ? new Date(t.occurred_at).toLocaleString("vi-VN") : "-";
+                case "note":
+                  return t.note || "-";
+                default:
+                  return (t as Record<string, any>)[key] ?? "-";
+              }
+            };
+            return (
+              <DataTable
+                data={transactions}
+                totalCount={totalCount}
+                selectedColumns={selected}
+                labelMap={labelMap}
+                pageSize={parseInt(new URLSearchParams(searchParams?.toString()).get("page_size") || "", 10) || null}
+                defaultPageSize={defaultPageSize}
+                basePath="/finance/transactions"
+                currentOrdering={new URLSearchParams(searchParams?.toString()).get("ordering") || ""}
+                renderCell={renderCell}
+                renderActions={(transaction: any) => (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(transaction.id)}
                   >
-                    {getTransactionTypeLabel(transaction.transaction_type)}
-                  </TableCell>
-                  <TableCell>
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: transaction.wallet?.currency || "VND",
-                    }).format(parseFloat(transaction.amount))}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(transaction.occurred_at).toLocaleString("vi-VN")}
-                  </TableCell>
-                  <TableCell>{transaction.note || "-"}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(transaction.id)}
-                    >
-                      Xóa
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    Xóa
+                  </Button>
+                )}
+                onRequestData={({ ordering, page, page_size }) => {
+                  setLoading(true);
+                  const filterParams = buildFilterParams(filterConditions);
+                  apiClient.getTransactions({ ...filterParams, ordering, page, page_size }).then((data) => {
+                    setTransactions(data.results || data);
+                    setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
+                    setLoading(false);
+                  }).catch(() => setLoading(false));
+                }}
+              />
+            );
+          })()}
           {transactions.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               Chưa có giao dịch nào. Hãy tạo giao dịch đầu tiên của bạn.

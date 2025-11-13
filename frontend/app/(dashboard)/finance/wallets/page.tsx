@@ -8,14 +8,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { FilterBuilder, FilterField, FilterCondition } from "@/components/filter-builder";
 import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +27,9 @@ export default function WalletsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -42,6 +37,13 @@ export default function WalletsPage() {
     initial_balance: "0",
     copy_master: true,
   });
+  const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
+
+  const getPageSizeFromUrl = () => {
+    const ps = new URLSearchParams(searchParams?.toString() || "").get("page_size");
+    const n = ps ? parseInt(ps, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
   useEffect(() => {
     loadFilterMetadata();
@@ -77,6 +79,10 @@ export default function WalletsPage() {
     try {
       const data = await apiClient.getWalletFilterMetadata();
       setFilterFields(data.fields || []);
+      setDefaultColumns(data.default_columns || []);
+      if (typeof data.default_page_size === "number") {
+        setDefaultPageSize(data.default_page_size);
+      }
     } catch (error) {
       console.error("Error loading filter metadata:", error);
     }
@@ -87,6 +93,7 @@ export default function WalletsPage() {
       const filterParams = buildFilterParams(filterConditions);
       const data = await apiClient.getWallets(filterParams);
       setWallets(data.results || data);
+      setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
     } catch (error) {
       console.error("Error loading wallets:", error);
     } finally {
@@ -158,7 +165,26 @@ export default function WalletsPage() {
         fields={filterFields}
         conditions={filterConditions}
         onChange={setFilterConditions}
-        onApply={handleApplyFilter}
+        initialDisplayColumns={(typeof window !== "undefined" ? new URLSearchParams(searchParams?.toString()).get("columns") : null)?.split(",").filter(Boolean) || defaultColumns}
+        initialPageSize={getPageSizeFromUrl() ?? defaultPageSize}
+        onApply={(columns, pageSize) => {
+          setLoading(true);
+          const filterParams = buildFilterParams(filterConditions);
+          const queryString = buildFilterQueryString(filterConditions);
+          const colsParam = columns && columns.length > 0 ? `columns=${columns.join(",")}` : "";
+          const pageSizeParam = pageSize ? `page_size=${pageSize}` : "";
+          const combined = [queryString, colsParam, pageSizeParam].filter(Boolean).join("&");
+          const newUrl = combined ? `/finance/wallets?${combined}` : "/finance/wallets";
+          router.push(newUrl);
+          apiClient.getWallets({ ...filterParams, page_size: pageSize || undefined }).then((data) => {
+            setWallets(data.results || data);
+            setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
+            setLoading(false);
+          }).catch((error) => {
+            console.error("Error loading wallets:", error);
+            setLoading(false);
+          });
+        }}
       />
       <div className="flex justify-between items-center">
         <div>
@@ -249,41 +275,55 @@ export default function WalletsPage() {
           <CardDescription>Tất cả các ví của bạn</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tên ví</TableHead>
-                <TableHead>Mô tả</TableHead>
-                <TableHead>Tiền tệ</TableHead>
-                <TableHead>Số dư</TableHead>
-                <TableHead>Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {wallets.map((wallet) => (
-                <TableRow key={wallet.id}>
-                  <TableCell className="font-medium">{wallet.name}</TableCell>
-                  <TableCell>{wallet.description || "-"}</TableCell>
-                  <TableCell>{wallet.currency}</TableCell>
-                  <TableCell>
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: wallet.currency || "VND",
-                    }).format(parseFloat(wallet.current_balance))}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(wallet.id)}
-                    >
-                      Xóa
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {(() => {
+            const c = new URLSearchParams(searchParams?.toString()).get("columns");
+            const selected = (c && c.length > 0 ? c : (defaultColumns.length > 0 ? defaultColumns.join(",") : "name,description,currency,current_balance")).split(",").filter(Boolean);
+            const labelMap = filterFields.reduce<Record<string, string>>((acc, f) => { acc[f.name] = f.label; return acc; }, {});
+            const renderCell = (key: string, w: any) => {
+              switch (key) {
+                case "name": return w.name || "-";
+                case "description": return w.description || "-";
+                case "currency": return w.currency || "-";
+                case "current_balance":
+                  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: w.currency || "VND" }).format(parseFloat(w.current_balance));
+                case "created_at":
+                  return w.created_at ? new Date(w.created_at).toLocaleString("vi-VN") : "-";
+                default:
+                  return (w as Record<string, any>)[key] ?? "-";
+              }
+            };
+            return (
+              <DataTable
+                data={wallets}
+                totalCount={totalCount}
+                selectedColumns={selected}
+                labelMap={labelMap}
+                pageSize={parseInt(new URLSearchParams(searchParams?.toString()).get("page_size") || "", 10) || null}
+                defaultPageSize={defaultPageSize}
+                basePath="/finance/wallets"
+                currentOrdering={new URLSearchParams(searchParams?.toString()).get("ordering") || ""}
+                renderCell={renderCell}
+                renderActions={(wallet: any) => (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(wallet.id)}
+                  >
+                    Xóa
+                  </Button>
+                )}
+                onRequestData={({ ordering, page, page_size }) => {
+                  setLoading(true);
+                  const filterParams = buildFilterParams(filterConditions);
+                  apiClient.getWallets({ ...filterParams, ordering, page, page_size }).then((data) => {
+                    setWallets(data.results || data);
+                    setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
+                    setLoading(false);
+                  }).catch(() => setLoading(false));
+                }}
+              />
+            );
+          })()}
           {wallets.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               Chưa có ví nào. Hãy tạo ví đầu tiên của bạn.
