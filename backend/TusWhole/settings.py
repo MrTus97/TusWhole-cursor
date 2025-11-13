@@ -52,6 +52,8 @@ INSTALLED_APPS = [
     'django_filters',
     'app.api',
     'app.finance',
+    'app.contacts',
+    'app.custom_fields',
 ]
 
 MIDDLEWARE = [

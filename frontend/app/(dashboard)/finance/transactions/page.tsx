@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { FilterBuilder, FilterField, FilterCondition } from "@/components/filter-builder";
+import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
 import {
   Table,
   TableBody,
@@ -31,12 +35,16 @@ import {
 } from "@/components/ui/select";
 
 export default function TransactionsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [transactions, setTransactions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
+  const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [formData, setFormData] = useState({
     wallet: "",
     category: "",
@@ -48,7 +56,56 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     loadData();
+    loadFilterMetadata();
   }, []);
+
+  useEffect(() => {
+    // Parse filter từ URL khi load trang (sau khi đã có filterFields)
+    if (filterFields.length > 0 && searchParams) {
+      const urlConditions = parseFilterFromQuery(
+        new URLSearchParams(searchParams.toString()),
+        filterFields
+      );
+      if (urlConditions.length > 0) {
+        setFilterConditions(urlConditions);
+        // Load data với filter từ URL
+        setLoading(true);
+        const filterParams = buildFilterParams(urlConditions);
+        apiClient.getTransactions(filterParams).then((data) => {
+          setTransactions(data.results || data);
+          setLoading(false);
+        }).catch((error) => {
+          console.error("Error loading transactions:", error);
+          setLoading(false);
+        });
+      }
+    }
+  }, [filterFields, searchParams]);
+
+  const loadFilterMetadata = async () => {
+    try {
+      const data = await apiClient.getTransactionFilterMetadata();
+      // Populate wallet and category options
+      const fields = (data.fields || []).map((field: any) => {
+        if (field.name === "wallet") {
+          return {
+            ...field,
+            options: wallets.map((w) => ({ value: w.id.toString(), label: w.name })),
+          };
+        }
+        if (field.name === "category") {
+          return {
+            ...field,
+            options: categories.map((c) => ({ value: c.id.toString(), label: c.name })),
+          };
+        }
+        return field;
+      });
+      setFilterFields(fields);
+    } catch (error) {
+      console.error("Error loading filter metadata:", error);
+    }
+  };
 
   useEffect(() => {
     if (selectedWallet) {
@@ -56,11 +113,18 @@ export default function TransactionsPage() {
     }
   }, [selectedWallet]);
 
+  useEffect(() => {
+    if (wallets.length > 0 || categories.length > 0) {
+      loadFilterMetadata();
+    }
+  }, [wallets, categories]);
+
   const loadData = async () => {
     try {
+      const filterParams = buildFilterParams(filterConditions);
       const [walletsData, transactionsData] = await Promise.all([
         apiClient.getWallets(),
-        apiClient.getTransactions(),
+        apiClient.getTransactions(filterParams),
       ]);
       setWallets(walletsData.results || walletsData);
       setTransactions(transactionsData.results || transactionsData);
@@ -69,6 +133,27 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyFilter = () => {
+    setLoading(true);
+    const filterParams = buildFilterParams(filterConditions);
+    
+    // Update URL với filter params
+    const queryString = buildFilterQueryString(filterConditions);
+    const newUrl = queryString 
+      ? `/finance/transactions?${queryString}`
+      : "/finance/transactions";
+    router.push(newUrl);
+    
+    // Load data với filter
+    apiClient.getTransactions(filterParams).then((data) => {
+      setTransactions(data.results || data);
+      setLoading(false);
+    }).catch((error) => {
+      console.error("Error loading transactions:", error);
+      setLoading(false);
+    });
   };
 
   const loadCategories = async (walletId: number) => {
@@ -141,6 +226,13 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "Tài chính", href: "/finance" }, { label: "Giao dịch" }]} />
+      <FilterBuilder
+        fields={filterFields}
+        conditions={filterConditions}
+        onChange={setFilterConditions}
+        onApply={handleApplyFilter}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Giao dịch</h1>

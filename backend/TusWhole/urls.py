@@ -31,4 +31,6 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('api/', include('app.api.urls')),
     path('api/finance/', include('app.finance.urls')),
+    path('api/contacts/', include('app.contacts.urls')),
+    path('api/custom-fields/', include('app.custom_fields.urls')),
 ]

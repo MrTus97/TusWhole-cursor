@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from app.finance.views import (
@@ -5,6 +6,10 @@ from app.finance.views import (
     CategoryViewSet,
     TransactionViewSet,
     WalletViewSet,
+)
+from app.finance.views.filter_metadata_views import (
+    transaction_filter_metadata,
+    wallet_filter_metadata,
 )
 
 router = DefaultRouter()
@@ -15,5 +20,8 @@ router.register(
     r"category-templates", CategoryTemplateViewSet, basename="category-template"
 )
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path("filter-metadata/wallets/", wallet_filter_metadata, name="wallet-filter-metadata"),
+    path("filter-metadata/transactions/", transaction_filter_metadata, name="transaction-filter-metadata"),
+]
 

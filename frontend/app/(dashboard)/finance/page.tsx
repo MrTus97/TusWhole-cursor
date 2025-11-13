@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -31,6 +32,7 @@ export default function FinancePage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "Tài chính" }]} />
       <div>
         <h1 className="text-3xl font-bold">Quản lý tài chính</h1>
         <p className="text-gray-600 mt-2">

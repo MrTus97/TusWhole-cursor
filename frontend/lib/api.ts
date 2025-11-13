@@ -135,6 +135,69 @@ class ApiClient {
     });
     return response.data;
   }
+
+  // Contacts methods
+  async getContacts(params?: any) {
+    const response = await this.client.get("/api/contacts/contacts/", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createContact(data: any) {
+    const response = await this.client.post("/api/contacts/contacts/", data);
+    return response.data;
+  }
+
+  async updateContact(id: number, data: any) {
+    const response = await this.client.patch(`/api/contacts/contacts/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteContact(id: number) {
+    await this.client.delete(`/api/contacts/contacts/${id}/`);
+  }
+
+  // Custom Fields methods
+  async getCustomFields(params?: any) {
+    const response = await this.client.get("/api/custom-fields/custom-fields/", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createCustomField(data: any) {
+    const response = await this.client.post("/api/custom-fields/custom-fields/", data);
+    return response.data;
+  }
+
+  async updateCustomField(id: number, data: any) {
+    const response = await this.client.patch(
+      `/api/custom-fields/custom-fields/${id}/`,
+      data
+    );
+    return response.data;
+  }
+
+  async deleteCustomField(id: number) {
+    await this.client.delete(`/api/custom-fields/custom-fields/${id}/`);
+  }
+
+  // Filter metadata methods
+  async getWalletFilterMetadata() {
+    const response = await this.client.get("/api/finance/filter-metadata/wallets/");
+    return response.data;
+  }
+
+  async getTransactionFilterMetadata() {
+    const response = await this.client.get("/api/finance/filter-metadata/transactions/");
+    return response.data;
+  }
+
+  async getContactFilterMetadata() {
+    const response = await this.client.get("/api/contacts/filter-metadata/contacts/");
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

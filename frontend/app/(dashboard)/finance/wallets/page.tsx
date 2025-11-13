@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { FilterBuilder, FilterField, FilterCondition } from "@/components/filter-builder";
+import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
 import {
   Table,
   TableBody,
@@ -24,9 +28,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function WalletsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [filterFields, setFilterFields] = useState<FilterField[]>([]);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -36,18 +44,75 @@ export default function WalletsPage() {
   });
 
   useEffect(() => {
-    loadWallets();
+    loadFilterMetadata();
   }, []);
+
+  useEffect(() => {
+    // Parse filter từ URL khi load trang
+    if (filterFields.length > 0 && searchParams) {
+      const urlConditions = parseFilterFromQuery(
+        new URLSearchParams(searchParams.toString()),
+        filterFields
+      );
+      if (urlConditions.length > 0) {
+        setFilterConditions(urlConditions);
+        // Load data với filter từ URL
+        setLoading(true);
+        const filterParams = buildFilterParams(urlConditions);
+        apiClient.getWallets(filterParams).then((data) => {
+          setWallets(data.results || data);
+          setLoading(false);
+        }).catch((error) => {
+          console.error("Error loading wallets:", error);
+          setLoading(false);
+        });
+      } else {
+        // Không có filter trong URL, load data bình thường
+        loadWallets();
+      }
+    }
+  }, [filterFields, searchParams]);
+
+  const loadFilterMetadata = async () => {
+    try {
+      const data = await apiClient.getWalletFilterMetadata();
+      setFilterFields(data.fields || []);
+    } catch (error) {
+      console.error("Error loading filter metadata:", error);
+    }
+  };
 
   const loadWallets = async () => {
     try {
-      const data = await apiClient.getWallets();
+      const filterParams = buildFilterParams(filterConditions);
+      const data = await apiClient.getWallets(filterParams);
       setWallets(data.results || data);
     } catch (error) {
       console.error("Error loading wallets:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleApplyFilter = () => {
+    setLoading(true);
+    const filterParams = buildFilterParams(filterConditions);
+    
+    // Update URL với filter params
+    const queryString = buildFilterQueryString(filterConditions);
+    const newUrl = queryString 
+      ? `/finance/wallets?${queryString}`
+      : "/finance/wallets";
+    router.push(newUrl);
+    
+    // Load data với filter
+    apiClient.getWallets(filterParams).then((data) => {
+      setWallets(data.results || data);
+      setLoading(false);
+    }).catch((error) => {
+      console.error("Error loading wallets:", error);
+      setLoading(false);
+    });
   };
 
   const handleCreateWallet = async (e: React.FormEvent) => {
@@ -88,6 +153,13 @@ export default function WalletsPage() {
 
   return (
     <div className="space-y-6">
+      <Breadcrumb items={[{ label: "Tài chính", href: "/finance" }, { label: "Ví" }]} />
+      <FilterBuilder
+        fields={filterFields}
+        conditions={filterConditions}
+        onChange={setFilterConditions}
+        onApply={handleApplyFilter}
+      />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Quản lý ví</h1>

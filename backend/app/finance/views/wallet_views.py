@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from app.finance.models import Wallet
 from app.finance.serializers import WalletSerializer
 from app.finance.services import WalletService
+from app.finance.filtersets.wallet_filterset import WalletFilterSet
 
 
 WALLET_SEARCH_FIELDS = [
@@ -32,7 +33,7 @@ WALLET_SEARCH_FIELDS += ["owner__username", "owner__email"]
 class WalletViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = WalletSerializer
-    filterset_fields = "__all__"
+    filterset_class = WalletFilterSet
     ordering_fields = "__all__"
     search_fields = WALLET_SEARCH_FIELDS
 

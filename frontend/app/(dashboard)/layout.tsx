@@ -1,18 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { useEffect } from "react";
+import { ModuleMenu } from "@/components/module-menu";
+import { Footer } from "@/components/footer";
+import { Wallet, CreditCard, List, Users, FileText, Settings } from "lucide-react";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, loading, logout, user } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -32,52 +34,59 @@ export default function DashboardLayout({
     return null;
   }
 
+  // Xác định menu dựa trên pathname
+  const getModuleMenu = () => {
+    if (pathname?.startsWith("/finance")) {
+      return {
+        title: "Tài chính",
+        icon: <Wallet className="w-5 h-5" />,
+        href: "/finance",
+        items: [
+          { label: "Tổng quan", href: "/finance", icon: <Wallet className="w-4 h-4" /> },
+          { label: "Ví", href: "/finance/wallets", icon: <CreditCard className="w-4 h-4" /> },
+          { label: "Giao dịch", href: "/finance/transactions", icon: <List className="w-4 h-4" /> },
+        ],
+      };
+    }
+    if (pathname?.startsWith("/contacts")) {
+      return {
+        title: "Sổ quan hệ",
+        icon: <Users className="w-5 h-5" />,
+        href: "/contacts",
+        items: [
+          { label: "Danh sách liên hệ", href: "/contacts", icon: <Users className="w-4 h-4" /> },
+        ],
+      };
+    }
+    if (pathname?.startsWith("/settings")) {
+      return {
+        title: "Cài đặt",
+        icon: <Settings className="w-5 h-5" />,
+        href: "/settings",
+        items: [
+          { label: "Custom Fields", href: "/settings", icon: <FileText className="w-4 h-4" /> },
+        ],
+      };
+    }
+    return null;
+  };
+
+  const moduleMenu = getModuleMenu();
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Link href="/finance" className="text-xl font-bold">
-                  TusWhole
-                </Link>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <Link
-                  href="/finance"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Tổng quan
-                </Link>
-                <Link
-                  href="/finance/wallets"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Ví
-                </Link>
-                <Link
-                  href="/finance/transactions"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Giao dịch
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <span className="text-sm text-gray-700 mr-4">
-                {user?.username}
-              </span>
-              <Button variant="outline" onClick={logout}>
-                Đăng xuất
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50 pb-14">
+      {moduleMenu && (
+        <ModuleMenu 
+          title={moduleMenu.title} 
+          items={moduleMenu.items}
+          icon={moduleMenu.icon}
+          href={moduleMenu.href}
+        />
+      )}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         {children}
       </main>
+      <Footer />
     </div>
   );
 }
