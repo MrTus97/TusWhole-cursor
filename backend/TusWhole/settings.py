@@ -19,20 +19,24 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env file first, then .env_local if exists (for local development)
 load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / "environment" / ".env_local", override=True)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-8o&tixrv5b3u1j3gfk^#56-@an57a)($d0@3fn-ew%ttt0-met")
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY", "django-insecure-8o&tixrv5b3u1j3gfk^#56-@an57a)($d0@3fn-ew%ttt0-met")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
 raw_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = [host.strip() for host in raw_allowed_hosts.split(",") if host.strip()]
+ALLOWED_HOSTS = [host.strip()
+                 for host in raw_allowed_hosts.split(",") if host.strip()]
 
 
 # Application definition
@@ -97,7 +101,8 @@ def parse_database_url(database_url: str | None):
 
     parsed = urlparse(database_url)
     if parsed.scheme not in {'postgres', 'postgresql'}:
-        raise ValueError("Only PostgreSQL URLs are supported for DATABASE_URL.")
+        raise ValueError(
+            "Only PostgreSQL URLs are supported for DATABASE_URL.")
 
     return {
         'ENGINE': 'django.db.backends.postgresql',
@@ -150,6 +155,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = Path(os.getenv("DJANGO_STATIC_ROOT", BASE_DIR / "staticfiles"))
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", BASE_DIR / "media"))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -202,7 +211,8 @@ CORS_ALLOW_HEADERS = [
 # Session settings for OAuth
 SESSION_COOKIE_SAMESITE = 'Lax'  # Cho phép gửi cookie trong cross-site requests
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = False  # False cho development (localhost), True cho production (HTTPS)
+# False cho development (localhost), True cho production (HTTPS)
+SESSION_COOKIE_SECURE = False
 SESSION_COOKIE_AGE = 600  # 10 phút
 SESSION_SAVE_EVERY_REQUEST = True
 

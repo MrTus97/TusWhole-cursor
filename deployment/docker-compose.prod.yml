@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: tuswhole_db_prod
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tuswhole_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+  # Backend Service
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: tuswhole_backend_prod
+    volumes:
+      - backend_static_prod:/app/staticfiles
+      - backend_media_prod:/app/media
+    env_file:
+      - ./environment/.env.prod
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tuswhole_prod}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: tuswhole_frontend_prod
+    env_file:
+      - ./environment/.env.prod
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://backend:8000}
+    depends_on:
+      - backend
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: tuswhole_nginx_prod
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - backend_static_prod:/var/www/static:ro
+      - backend_media_prod:/var/www/media:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data_prod:
+  backend_static_prod:
+  backend_media_prod:
+
+networks:
+  tuswhole_network:
+    driver: bridge
+

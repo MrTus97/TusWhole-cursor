@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: tuswhole_db_dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tuswhole_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tuswhole_network
+
+  # Backend Service
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.dev
+    container_name: tuswhole_backend_dev
+    volumes:
+      - ../backend:/app
+      - backend_static_dev:/app/staticfiles
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    env_file:
+      - ./environment/.env.dev
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tuswhole_dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: tuswhole_frontend_dev
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    env_file:
+      - ./environment/.env.dev
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - backend
+    networks:
+      - tuswhole_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data_dev:
+  backend_static_dev:
+
+networks:
+  tuswhole_network:
+    driver: bridge
+
