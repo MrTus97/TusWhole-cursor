@@ -53,6 +53,14 @@ export function buildFilterParams(conditions: FilterCondition[]): Record<string,
         params[`${field}__gte`] = values[0];
         params[`${field}__lte`] = values[1];
       }
+    } else if (Array.isArray(value)) {
+      // Multi-select: equals -> __in, not_equals -> __not__in
+      const list = (value as (string | number)[]).join(",");
+      if (operator === "not_equals") {
+        params[`${field}__not__in`] = list;
+      } else {
+        params[`${field}__in`] = list;
+      }
     } else if (lookup === "") {
       // Exact match
       params[field] = value;
@@ -128,6 +136,8 @@ export function parseFilterFromQuery(
       isnull: value === "true" ? "is_empty" : "is_not_empty",
       not_icontains: "not_contains",
       not_exact: "not_equals",
+      in: "equals",
+      not_in: "not_equals",
     };
     
     if (operator === "isnull") {
@@ -167,6 +177,9 @@ export function parseFilterFromQuery(
       if (isNaN(parsedValue)) continue;
     } else if (field.type === "boolean") {
       parsedValue = value === "true";
+    } else if (key.endsWith("__in")) {
+      // Multi-select parse
+      parsedValue = String(value).split(",").filter(Boolean);
     } else if (field.type === "date" || field.type === "datetime") {
       // Giữ nguyên string value cho date/datetime
       parsedValue = value;

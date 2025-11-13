@@ -6,7 +6,7 @@ from app.contacts.models import Contact
 class ContactRepository:
     @staticmethod
     def for_user(user) -> QuerySet[Contact]:
-        return Contact.objects.filter(owner=user)
+        return Contact.objects.filter(owner=user).select_related("occupation")
 
     @staticmethod
     def get_by_id(contact_id: int) -> Contact:

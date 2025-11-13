@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,13 +20,14 @@ export interface FilterField {
   label: string;
   type: FieldType;
   options?: { value: string; label: string }[];
+  multiple?: boolean;
 }
 
 export interface FilterCondition {
   id: string;
   field: string;
   operator: string;
-  value: string | number | boolean | null;
+  value: string | number | boolean | null | string[] | number[];
   enabled: boolean;
 }
 
@@ -91,6 +92,8 @@ const OPERATORS: Record<FieldType, { value: string; label: string }[]> = {
 export function FilterBuilder({ fields, conditions, onChange, onApply }: FilterBuilderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedField, setSelectedField] = useState<string>("");
+  const [openMultiId, setOpenMultiId] = useState<string | null>(null);
+  const [searchTextById, setSearchTextById] = useState<Record<string, string>>({});
 
   const availableFields = fields.filter(
     (field) => !conditions.some((cond) => cond.field === field.name && cond.enabled)
@@ -122,6 +125,129 @@ export function FilterBuilder({ fields, conditions, onChange, onApply }: FilterB
   const updateCondition = (id: string, updates: Partial<FilterCondition>) => {
     onChange(
       conditions.map((cond) => (cond.id === id ? { ...cond, ...updates } : cond))
+    );
+  };
+
+  const MultiDropdown = ({
+    conditionId,
+    options,
+    values,
+    onToggleValue,
+    placeholder = "Chọn giá trị...",
+  }: {
+    conditionId: string;
+    options: { value: string; label: string }[];
+    values: (string | number)[];
+    onToggleValue: (value: string) => void;
+    placeholder?: string;
+  }) => {
+    const ref = useRef<HTMLDivElement>(null);
+    const isOpen = openMultiId === conditionId;
+    const search = searchTextById[conditionId] || "";
+    const filtered = options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    useEffect(() => {
+      const onDocClick = (e: MouseEvent) => {
+        if (!ref.current) return;
+        if (!ref.current.contains(e.target as Node)) {
+          setOpenMultiId((id) => (id === conditionId ? null : id));
+        }
+      };
+      if (isOpen) document.addEventListener("mousedown", onDocClick);
+      return () => document.removeEventListener("mousedown", onDocClick);
+    }, [isOpen, conditionId]);
+
+    const selectedValues = (Array.isArray(values) ? values : []) as (string | number)[];
+    const selectedSet = new Set(selectedValues.map((v) => String(v)));
+
+    const renderTag = (val: string) => {
+      const opt = options.find((o) => o.value === val);
+      const label = opt?.label ?? val;
+      return (
+        <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-gray-100 border rounded">
+          {label}
+          <button
+            type="button"
+            className="text-gray-500 hover:text-red-600"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleValue(val);
+            }}
+            aria-label={`Remove ${label}`}
+          >
+            ×
+          </button>
+        </span>
+      );
+    };
+
+    return (
+      <div className="relative" ref={ref}>
+        <div
+          role="button"
+          tabIndex={0}
+          className="min-w-[12rem] max-w-[28rem] flex items-center gap-2 flex-wrap border rounded px-2 py-1 bg-white text-left cursor-pointer"
+          onClick={() => setOpenMultiId(isOpen ? null : conditionId)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpenMultiId(isOpen ? null : conditionId);
+            }
+          }}
+        >
+          {selectedValues.length === 0 ? (
+            <span className="text-gray-500">{placeholder}</span>
+          ) : (
+            selectedValues.map((v) => renderTag(String(v)))
+          )}
+        </div>
+        {isOpen && (
+          <div className="absolute z-50 mt-1 w-[28rem] max-w-[90vw] bg-white border rounded shadow">
+            <div className="p-2 border-b bg-white sticky top-0">
+              <Input
+                placeholder="Tìm kiếm..."
+                value={search}
+                onChange={(e) =>
+                  setSearchTextById((prev) => ({ ...prev, [conditionId]: e.target.value }))
+                }
+              />
+            </div>
+            <div className="max-h-60 overflow-auto p-1">
+              {filtered.length === 0 ? (
+                <div className="px-2 py-2 text-sm text-gray-500">Không có dữ liệu</div>
+              ) : (
+                filtered.map((opt) => {
+                  const checked = selectedSet.has(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={checked}
+                        onChange={() => onToggleValue(opt.value)}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+            <div className="p-2 border-t flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setOpenMultiId(null)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -167,7 +293,29 @@ export function FilterBuilder({ fields, conditions, onChange, onApply }: FilterB
       );
     }
 
-    // Dropdown field
+    // Dropdown field (multi - select2 style)
+    if (fieldType === "dropdown" && field?.options && field?.multiple) {
+      const currentValues = Array.isArray(condition.value)
+        ? (condition.value as (string | number)[])
+        : [];
+      const toggleValue = (val: string) => {
+        const strVals = currentValues.map((v) => String(v));
+        const exists = strVals.includes(val);
+        const next = exists ? strVals.filter((v) => v !== val) : [...strVals, val];
+        updateCondition(condition.id, { value: next });
+      };
+      return (
+        <MultiDropdown
+          conditionId={condition.id}
+          options={field.options}
+          values={currentValues}
+          onToggleValue={toggleValue}
+          placeholder="Chọn giá trị..."
+        />
+      );
+    }
+
+    // Dropdown field (single)
     if (fieldType === "dropdown" && field?.options) {
       return (
         <Select

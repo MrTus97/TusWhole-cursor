@@ -32,7 +32,8 @@ interface Contact {
   id: number;
   full_name: string;
   nickname?: string;
-  occupation?: string;
+  occupation?: number | null;
+  occupation_name?: string | null;
   current_address?: string;
   hometown?: string;
   phone_number?: string;
@@ -73,7 +74,7 @@ export default function ContactsPage() {
   const [formData, setFormData] = useState<Partial<Contact>>({
     full_name: "",
     nickname: "",
-    occupation: "",
+    occupation: null,
     current_address: "",
     hometown: "",
     phone_number: "",
@@ -81,10 +82,15 @@ export default function ContactsPage() {
     date_of_birth: "",
     notes: "",
   });
+  const [occupationOptions, setOccupationOptions] = useState<{ id: number; name: string }[]>([]);
+  const [occupationSearch, setOccupationSearch] = useState<string>("");
+  const [isAddOccupationOpen, setIsAddOccupationOpen] = useState(false);
+  const [newOccupationName, setNewOccupationName] = useState<string>("");
 
   useEffect(() => {
     loadCustomFields();
     loadFilterMetadata();
+    loadOccupationOptions();
   }, []);
 
   useEffect(() => {
@@ -119,6 +125,19 @@ export default function ContactsPage() {
       setFilterFields(data.fields || []);
     } catch (error) {
       console.error("Error loading filter metadata:", error);
+    }
+  };
+
+  const loadOccupationOptions = async (search?: string) => {
+    try {
+      const data = await apiClient.getOccupations({
+        search: search || undefined,
+        is_active: "true",
+      });
+      const items = Array.isArray(data) ? data : data.results || [];
+      setOccupationOptions(items.map((i: any) => ({ id: i.id, name: i.name })));
+    } catch (error) {
+      console.error("Error loading occupations:", error);
     }
   };
 
@@ -174,7 +193,7 @@ export default function ContactsPage() {
       setFormData({
         full_name: contact.full_name || "",
         nickname: contact.nickname || "",
-        occupation: contact.occupation || "",
+        occupation: typeof contact.occupation === "number" ? contact.occupation : null,
         current_address: contact.current_address || "",
         hometown: contact.hometown || "",
         phone_number: contact.phone_number || "",
@@ -199,7 +218,7 @@ export default function ContactsPage() {
       setFormData({
         full_name: "",
         nickname: "",
-        occupation: "",
+        occupation: null,
         current_address: "",
         hometown: "",
         phone_number: "",
@@ -514,13 +533,88 @@ export default function ContactsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="occupation">Ngành nghề</Label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={formData.occupation ? String(formData.occupation) : ""}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, occupation: value ? Number(value) : null });
+                      }}
+                      onOpenChange={(open) => {
+                        if (open && occupationOptions.length === 0) {
+                          loadOccupationOptions();
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn ngành nghề" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <div className="p-2 sticky top-0 bg-popover">
+                          <Input
+                            placeholder="Tìm kiếm..."
+                            value={occupationSearch}
+                            onChange={(e) => {
+                              const q = e.target.value;
+                              setOccupationSearch(q);
+                              loadOccupationOptions(q);
+                            }}
+                          />
+                        </div>
+                        {occupationOptions.map((opt) => (
+                          <SelectItem key={opt.id} value={String(opt.id)}>
+                            {opt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Dialog open={isAddOccupationOpen} onOpenChange={setIsAddOccupationOpen}>
+                      <DialogTrigger asChild>
+                        <Button type="button" variant="secondary" onClick={() => setIsAddOccupationOpen(true)}>
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Thêm ngành nghề</DialogTitle>
+                          <DialogDescription>Nhập tên ngành nghề mới</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-2">
+                          <Label htmlFor="newOccupation">Tên ngành nghề</Label>
                   <Input
-                    id="occupation"
-                    value={formData.occupation}
-                    onChange={(e) =>
-                      setFormData({ ...formData, occupation: e.target.value })
-                    }
-                  />
+                            id="newOccupation"
+                            value={newOccupationName}
+                            onChange={(e) => setNewOccupationName(e.target.value)}
+                            placeholder="Ví dụ: Kế toán"
+                          />
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            type="button"
+                            onClick={async () => {
+                              if (!newOccupationName.trim()) return;
+                              try {
+                                const created = await apiClient.createOccupation({
+                                  name: newOccupationName.trim(),
+                                  is_active: true,
+                                  parent: null,
+                                });
+                                // Cập nhật danh sách và chọn ngay
+                                const newItem = { id: created.id, name: created.name };
+                                setOccupationOptions((prev) => [newItem, ...prev]);
+                                setFormData((fd) => ({ ...fd, occupation: created.id }));
+                                setNewOccupationName("");
+                                setIsAddOccupationOpen(false);
+                              } catch (error) {
+                                console.error("Error creating occupation:", error);
+                              }
+                            }}
+                          >
+                            Lưu
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="current_address">Chỗ ở hiện tại</Label>
@@ -646,10 +740,10 @@ export default function ContactsPage() {
                       <span>{contact.phone_number}</span>
                     </div>
                   )}
-                  {contact.occupation && (
+                  {contact.occupation_name && (
                     <div>
                       <span className="text-gray-600">Nghề nghiệp: </span>
-                      <span>{contact.occupation}</span>
+                      <span>{contact.occupation_name}</span>
                     </div>
                   )}
                   {contact.current_address && (

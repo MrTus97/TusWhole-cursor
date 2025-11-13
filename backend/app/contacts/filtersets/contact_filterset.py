@@ -12,7 +12,9 @@ class ContactFilterSet(DynamicFilterSet):
     full_name__iendswith = django_filters.CharFilter(field_name="full_name", lookup_expr="iendswith")
     full_name__not__icontains = django_filters.CharFilter(method="filter_not_icontains")
     nickname__icontains = django_filters.CharFilter(field_name="nickname", lookup_expr="icontains")
-    occupation__icontains = django_filters.CharFilter(field_name="occupation", lookup_expr="icontains")
+    occupation__icontains = django_filters.CharFilter(field_name="occupation__name", lookup_expr="icontains")
+    occupation__in = django_filters.CharFilter(method="filter_occupation_in")
+    occupation__not__in = django_filters.CharFilter(method="filter_occupation_not_in")
     phone_number__icontains = django_filters.CharFilter(field_name="phone_number", lookup_expr="icontains")
     hometown__icontains = django_filters.CharFilter(field_name="hometown", lookup_expr="icontains")
     current_address__icontains = django_filters.CharFilter(field_name="current_address", lookup_expr="icontains")
@@ -33,6 +35,30 @@ class ContactFilterSet(DynamicFilterSet):
     def filter_not_exact(self, queryset, name, value):
         field_name = name.split("__")[0]
         return queryset.exclude(**{field_name: value})
+	
+    def filter_occupation_in(self, queryset, name, value):
+        values = [v.strip() for v in str(value).split(",") if v.strip()]
+        ids = []
+        for v in values:
+            try:
+                ids.append(int(v))
+            except ValueError:
+                continue
+        if not ids:
+            return queryset.none()
+        return queryset.filter(occupation_id__in=ids)
+    
+    def filter_occupation_not_in(self, queryset, name, value):
+        values = [v.strip() for v in str(value).split(",") if v.strip()]
+        ids = []
+        for v in values:
+            try:
+                ids.append(int(v))
+            except ValueError:
+                continue
+        if not ids:
+            return queryset
+        return queryset.exclude(occupation_id__in=ids)
 
     class Meta:
         model = Contact

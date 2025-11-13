@@ -6,6 +6,7 @@ from app.contacts.models import Contact
 class ContactSerializer(serializers.ModelSerializer):
     owner = serializers.StringRelatedField(read_only=True)
     custom_fields = serializers.SerializerMethodField()
+    occupation_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Contact
@@ -14,6 +15,7 @@ class ContactSerializer(serializers.ModelSerializer):
             "full_name",
             "nickname",
             "occupation",
+            "occupation_name",
             "current_address",
             "hometown",
             "phone_number",
@@ -38,4 +40,7 @@ class ContactSerializer(serializers.ModelSerializer):
             content_type=content_type, object_id=obj.id
         ).select_related("custom_field")
         return CustomFieldValueSerializer(values, many=True).data
+
+    def get_occupation_name(self, obj):
+        return obj.occupation.name if getattr(obj, "occupation_id", None) else None
 

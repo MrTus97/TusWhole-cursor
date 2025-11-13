@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'drf_spectacular_sidecar',
     'django_filters',
     'app.api',
+	'app.categories',
     'app.finance',
     'app.contacts',
     'app.custom_fields',

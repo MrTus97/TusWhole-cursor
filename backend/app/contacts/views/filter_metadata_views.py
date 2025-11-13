@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from app.contacts.models import Contact
 from app.contacts.models.choices import ImportanceLevel
 from app.custom_fields.models import CustomField
+from app.categories.models import Occupation
 
 
 @api_view(["GET"])
@@ -25,7 +26,12 @@ def contact_filter_metadata(request):
         {
             "name": "occupation",
             "label": "Ngành nghề",
-            "type": "text",
+            "type": "dropdown",
+            "multiple": True,
+            "options": [
+                {"value": str(o.id), "label": o.name}
+                for o in Occupation.objects.filter(is_active=True).order_by("name")
+            ],
         },
         {
             "name": "phone_number",

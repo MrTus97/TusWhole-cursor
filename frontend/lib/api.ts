@@ -158,6 +158,19 @@ class ApiClient {
     await this.client.delete(`/api/contacts/contacts/${id}/`);
   }
 
+  // Occupations
+  async getOccupations(params?: any) {
+    const response = await this.client.get("/api/categories/occupations/", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createOccupation(data: any) {
+    const response = await this.client.post("/api/categories/occupations/", data);
+    return response.data;
+  }
+
   // Custom Fields methods
   async getCustomFields(params?: any) {
     const response = await this.client.get("/api/custom-fields/custom-fields/", {

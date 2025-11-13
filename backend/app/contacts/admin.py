@@ -7,7 +7,7 @@ from app.contacts.models import Contact
 class ContactAdmin(admin.ModelAdmin):
     list_display = ["full_name", "nickname", "phone_number", "importance", "owner", "created_at"]
     list_filter = ["importance", "created_at", "owner"]
-    search_fields = ["full_name", "nickname", "phone_number", "occupation"]
+    search_fields = ["full_name", "nickname", "phone_number", "occupation__name"]
     readonly_fields = ["created_at", "updated_at"]
     fieldsets = (
         ("Thông tin cơ bản", {
