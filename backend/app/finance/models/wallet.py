@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
+from app.finance.models.fund import Fund
 
 
 class Wallet(models.Model):
@@ -9,6 +11,14 @@ class Wallet(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="wallets",
+    )
+    fund = models.ForeignKey(
+        Fund,
+        on_delete=models.CASCADE,
+        related_name="wallets",
+        null=True,
+        blank=True,
+        verbose_name=_("Quỹ"),
     )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)

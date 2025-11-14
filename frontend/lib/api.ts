@@ -120,6 +120,28 @@ class ApiClient {
     return response.data;
   }
 
+  // Funds
+  async getFunds(params?: any) {
+    const response = await this.client.get("/api/finance/funds/", {
+      params,
+    });
+    return response.data;
+  }
+
+  async createFund(data: any) {
+    const response = await this.client.post("/api/finance/funds/", data);
+    return response.data;
+  }
+
+  async updateFund(id: number, data: any) {
+    const response = await this.client.patch(`/api/finance/funds/${id}/`, data);
+    return response.data;
+  }
+
+  async deleteFund(id: number) {
+    await this.client.delete(`/api/finance/funds/${id}/`);
+  }
+
   // OAuth methods
   async getOAuthUrl(provider: "google" | "facebook" | "github", redirectUri?: string) {
     const response = await this.client.get(`/api/oauth/${provider}/url/`, {

@@ -362,7 +362,9 @@ export function FilterBuilder({
     if (fieldType === "dropdown" && field?.options && field?.multiple) {
       const currentValues = Array.isArray(condition.value)
         ? (condition.value as (string | number)[])
-        : [];
+        : (condition.value
+          ? [String(condition.value)]
+          : []);
       const toggleValue = (val: string) => {
         const strVals = currentValues.map((v) => String(v));
         const exists = strVals.includes(val);

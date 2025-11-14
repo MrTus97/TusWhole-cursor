@@ -13,29 +13,42 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ClearableSelect } from "@/components/clearable-select";
+import { AmountInput } from "@/components/amount-input";
 
 export default function WalletsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [wallets, setWallets] = useState<any[]>([]);
+  const [funds, setFunds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingWallet, setEditingWallet] = useState<any | null>(null);
   const [filterFields, setFilterFields] = useState<FilterField[]>([]);
   const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [formData, setFormData] = useState({
+    fund: "",
     name: "",
     description: "",
     currency: "VND",
     initial_balance: "0",
     copy_master: true,
+  });
+  const [editFormData, setEditFormData] = useState({
+    fund: "",
+    name: "",
+    description: "",
+    currency: "VND",
   });
   const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
 
@@ -91,9 +104,14 @@ export default function WalletsPage() {
   const loadWallets = async () => {
     try {
       const filterParams = buildFilterParams(filterConditions);
-      const data = await apiClient.getWallets(filterParams);
-      setWallets(data.results || data);
-      setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || 0);
+      const [wl, fs] = await Promise.all([
+        apiClient.getWallets(filterParams),
+        apiClient.getFunds(),
+      ]);
+      const walletsList = Array.isArray(wl) ? wl : (wl.results || []);
+      setWallets(walletsList);
+      setFunds(fs.results || fs);
+      setTotalCount(Array.isArray(wl) ? walletsList.length : (wl.count || walletsList.length || 0));
     } catch (error) {
       console.error("Error loading wallets:", error);
     } finally {
@@ -127,11 +145,13 @@ export default function WalletsPage() {
     try {
       await apiClient.createWallet({
         ...formData,
+        fund: formData.fund ? parseInt(formData.fund) : null,
         initial_balance: parseFloat(formData.initial_balance),
         copy_master: formData.copy_master,
       });
       setDialogOpen(false);
       setFormData({
+        fund: "",
         name: "",
         description: "",
         currency: "VND",
@@ -151,6 +171,35 @@ export default function WalletsPage() {
       loadWallets();
     } catch (error) {
       alert("Lỗi khi xóa ví");
+    }
+  };
+
+  const openEditDialog = (wallet: any) => {
+    setEditingWallet(wallet);
+    setEditFormData({
+      fund: wallet.fund ? String(wallet.fund) : "",
+      name: wallet.name || "",
+      description: wallet.description || "",
+      currency: wallet.currency || "VND",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateWallet = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWallet) return;
+    try {
+      await apiClient.updateWallet(editingWallet.id, {
+        fund: editFormData.fund ? parseInt(editFormData.fund) : null,
+        name: editFormData.name,
+        description: editFormData.description,
+        currency: editFormData.currency,
+      });
+      setEditDialogOpen(false);
+      setEditingWallet(null);
+      await loadWallets();
+    } catch (error: any) {
+      alert(error?.response?.data?.detail || "Lỗi khi cập nhật ví");
     }
   };
 
@@ -204,6 +253,15 @@ export default function WalletsPage() {
             </DialogHeader>
             <form onSubmit={handleCreateWallet} className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="fund">Quỹ</Label>
+                <ClearableSelect
+                  value={formData.fund}
+                  onChange={(value) => setFormData({ ...formData, fund: value })}
+                  options={funds.map((f) => ({ value: String(f.id), label: f.name }))}
+                  placeholder="Chọn quỹ (tuỳ chọn)"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="name">Tên ví *</Label>
                 <Input
                   id="name"
@@ -236,17 +294,16 @@ export default function WalletsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="initial_balance">Số dư ban đầu</Label>
-                <Input
+                <AmountInput
                   id="initial_balance"
-                  type="number"
-                  step="0.01"
                   value={formData.initial_balance}
-                  onChange={(e) =>
+                  onChange={(raw) =>
                     setFormData({
                       ...formData,
-                      initial_balance: e.target.value,
+                      initial_balance: raw,
                     })
                   }
+                  currency={formData.currency || "VND"}
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -267,6 +324,62 @@ export default function WalletsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Chỉnh sửa ví</DialogTitle>
+              <DialogDescription>Cập nhật thông tin ví</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateWallet} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_fund">Quỹ</Label>
+                <ClearableSelect
+                  value={editFormData.fund}
+                  onChange={(value) => setEditFormData({ ...editFormData, fund: value })}
+                  options={funds.map((f) => ({ value: String(f.id), label: f.name }))}
+                  placeholder="Chọn quỹ (tuỳ chọn)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_name">Tên ví *</Label>
+                <Input
+                  id="edit_name"
+                  value={editFormData.name}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_description">Mô tả</Label>
+                <Input
+                  id="edit_description"
+                  value={editFormData.description}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, description: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_currency">Tiền tệ</Label>
+                <Input
+                  id="edit_currency"
+                  value={editFormData.currency}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, currency: e.target.value })
+                  }
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  Hủy
+                </Button>
+                <Button type="submit">Lưu</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -281,7 +394,17 @@ export default function WalletsPage() {
             const labelMap = filterFields.reduce<Record<string, string>>((acc, f) => { acc[f.name] = f.label; return acc; }, {});
             const renderCell = (key: string, w: any) => {
               switch (key) {
-                case "name": return w.name || "-";
+                case "name":
+                  return (
+                    <button
+                      type="button"
+                      className="text-blue-600 hover:underline"
+                      onClick={() => router.push(`/finance/transactions?wallet=${w.id}`)}
+                      title="Xem giao dịch ví này"
+                    >
+                      {w.name || "-"}
+                    </button>
+                  );
                 case "description": return w.description || "-";
                 case "currency": return w.currency || "-";
                 case "current_balance":
@@ -304,13 +427,24 @@ export default function WalletsPage() {
                 currentOrdering={new URLSearchParams(searchParams?.toString()).get("ordering") || ""}
                 renderCell={renderCell}
                 renderActions={(wallet: any) => (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(wallet)}
+                      title="Chỉnh sửa ví"
+                    >
+                      Chỉnh sửa
+                    </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => handleDelete(wallet.id)}
+                      title="Xóa ví"
                   >
                     Xóa
                   </Button>
+                  </div>
                 )}
                 onRequestData={({ ordering, page, page_size }) => {
                   setLoading(true);

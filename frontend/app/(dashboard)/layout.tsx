@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import { ModuleMenu } from "@/components/module-menu";
 import { Footer } from "@/components/footer";
-import { Wallet, CreditCard, List, Users, FileText, Settings, BookOpen, FolderTree } from "lucide-react";
+	import { Wallet, CreditCard, List, Users, FileText, Settings, BookOpen, FolderTree } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -43,6 +43,7 @@ export default function DashboardLayout({
         href: "/finance",
         items: [
           { label: "Tổng quan", href: "/finance", icon: <Wallet className="w-4 h-4" /> },
+          { label: "Quỹ", href: "/finance/funds", icon: <FolderTree className="w-4 h-4" /> },
           { label: "Ví", href: "/finance/wallets", icon: <CreditCard className="w-4 h-4" /> },
           { label: "Giao dịch", href: "/finance/transactions", icon: <List className="w-4 h-4" /> },
         ],

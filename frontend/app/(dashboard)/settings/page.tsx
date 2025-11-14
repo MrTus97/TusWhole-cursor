@@ -17,15 +17,15 @@ export default function SettingsDashboardPage() {
         <div className="hidden md:flex items-center gap-3 text-gray-500">
           <Settings className="w-5 h-5" />
           <span>Dashboard</span>
-        </div>
-      </div>
+                  </div>
+                </div>
       <div className="grid gap-6 sm:grid-cols-2">
         <Link href="/settings/categories">
           <Card className="cursor-pointer hover:shadow-md transition-all">
             <CardHeader>
               <div className="w-12 h-12 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mb-2">
                 <FolderTree className="w-6 h-6" />
-              </div>
+                </div>
               <CardTitle>Danh mục</CardTitle>
               <CardDescription>Quản lý các danh mục dùng chung</CardDescription>
             </CardHeader>

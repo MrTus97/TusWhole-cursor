@@ -9,10 +9,14 @@ import { Button } from "@/components/ui/button";
 import { FilterBuilder, FilterField, FilterCondition } from "@/components/filter-builder";
 import { buildFilterParams, buildFilterQueryString, parseFilterFromQuery } from "@/lib/filter-utils";
 import { DataTable } from "@/components/data-table";
+import { AmountInput } from "@/components/amount-input";
+import { ClearableSelect } from "@/components/clearable-select";
+import { useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -35,6 +39,8 @@ export default function TransactionsPage() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<any | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<number | null>(null);
   const [filterFields, setFilterFields] = useState<FilterField[]>([]);
   const [defaultColumns, setDefaultColumns] = useState<string[]>([]);
@@ -47,6 +53,12 @@ export default function TransactionsPage() {
     amount: "",
     note: "",
     occurred_at: new Date().toISOString().slice(0, 16),
+  });
+  const [editFormData, setEditFormData] = useState({
+    amount: "",
+    note: "",
+    occurred_at: "",
+    transaction_type: "",
   });
   const [defaultPageSize, setDefaultPageSize] = useState<number>(100);
 
@@ -93,6 +105,7 @@ export default function TransactionsPage() {
           return {
             ...field,
             options: wallets.map((w) => ({ value: w.id.toString(), label: w.name })),
+            multiple: true,
           };
         }
         if (field.name === "category") {
@@ -128,18 +141,35 @@ export default function TransactionsPage() {
   const loadData = async () => {
     try {
       const filterParams = buildFilterParams(filterConditions);
-      const [walletsData, transactionsData] = await Promise.all([
+      const [walletsData, categoriesData, transactionsData] = await Promise.all([
         apiClient.getWallets(),
+        apiClient.getCategories(),
         apiClient.getTransactions(filterParams),
       ]);
-      setWallets(walletsData.results || walletsData);
-      setTransactions(transactionsData.results || transactionsData);
+      const walletsList = walletsData.results || walletsData;
+      const categoriesList = categoriesData.results || categoriesData;
+      const txList = transactionsData.results || transactionsData;
+      setWallets(walletsList);
+      setCategories(categoriesList);
+      setTransactions(txList);
+      setTotalCount(Array.isArray(transactionsData) ? (transactionsData as any[]).length : transactionsData.count || txList.length || 0);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setLoading(false);
     }
   };
+  const walletOptions = useMemo(
+    () => wallets.map((w) => ({ value: String(w.id), label: w.name })),
+    [wallets]
+  );
+  const handleWalletChange = useCallback(
+    (value: string) => {
+      setFormData((prev) => ({ ...prev, wallet: value, category: "" }));
+      setSelectedWallet(value ? parseInt(value) : null);
+    },
+    [setSelectedWallet]
+  );
 
   const handleApplyFilter = () => {
     setLoading(true);
@@ -154,7 +184,9 @@ export default function TransactionsPage() {
     
     // Load data với filter
     apiClient.getTransactions(filterParams).then((data) => {
-      setTransactions(data.results || data);
+          const list = data.results || data;
+          setTransactions(list);
+          setTotalCount(Array.isArray(data) ? (data as any[]).length : data.count || list.length || 0);
       setLoading(false);
     }).catch((error) => {
       console.error("Error loading transactions:", error);
@@ -203,6 +235,37 @@ export default function TransactionsPage() {
       loadData();
     } catch (error) {
       alert("Lỗi khi xóa giao dịch");
+    }
+  };
+
+  const openEditDialog = (tx: any) => {
+    setEditingTx(tx);
+    setEditFormData({
+      amount: String(tx.amount ?? ""),
+      note: tx.note ?? "",
+      occurred_at: tx.occurred_at
+        ? new Date(tx.occurred_at).toISOString().slice(0, 16)
+        : new Date().toISOString().slice(0, 16),
+      transaction_type: tx.transaction_type ?? "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    try {
+      await apiClient.updateTransaction(editingTx.id, {
+        amount: parseFloat(editFormData.amount),
+        note: editFormData.note,
+        occurred_at: editFormData.occurred_at,
+        transaction_type: editFormData.transaction_type || undefined,
+      });
+      setEditDialogOpen(false);
+      setEditingTx(null);
+      loadData();
+    } catch (error: any) {
+      alert(error?.response?.data?.detail || "Lỗi khi cập nhật giao dịch");
     }
   };
 
@@ -277,24 +340,12 @@ export default function TransactionsPage() {
             <form onSubmit={handleCreateTransaction} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="wallet">Ví *</Label>
-                <Select
+                <ClearableSelect
                   value={formData.wallet}
-                  onValueChange={(value) => {
-                    setFormData({ ...formData, wallet: value, category: "" });
-                    setSelectedWallet(parseInt(value));
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Chọn ví" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {wallets.map((wallet) => (
-                      <SelectItem key={wallet.id} value={wallet.id.toString()}>
-                        {wallet.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={handleWalletChange}
+                  options={walletOptions}
+                  placeholder="Chọn ví"
+                />
               </div>
               {selectedWallet && (
                 <div className="space-y-2">
@@ -351,15 +402,11 @@ export default function TransactionsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="amount">Số tiền *</Label>
-                <Input
+                <AmountInput
                   id="amount"
-                  type="number"
-                  step="0.01"
                   value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                  required
+                  onChange={(raw) => setFormData({ ...formData, amount: raw })}
+                  currency={(wallets.find((w) => String(w.id) === String(formData.wallet))?.currency) || "VND"}
                 />
               </div>
               <div className="space-y-2">
@@ -389,6 +436,67 @@ export default function TransactionsPage() {
             </form>
           </DialogContent>
         </Dialog>
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Chỉnh sửa giao dịch</DialogTitle>
+              <DialogDescription>Cập nhật thông tin giao dịch. Số dư ví sẽ tự động được tính lại.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleUpdateTransaction} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_amount">Số tiền</Label>
+                <AmountInput
+                  id="edit_amount"
+                  value={editFormData.amount}
+                  onChange={(raw) => setEditFormData({ ...editFormData, amount: raw })}
+                  currency={(() => {
+                    // cố gắng lấy currency từ giao dịch hiện tại
+                    const wId = typeof editingTx?.wallet === "object" ? editingTx?.wallet?.id : editingTx?.wallet;
+                    return wallets.find((w) => String(w.id) === String(wId))?.currency || "VND";
+                  })()}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_transaction_type">Loại giao dịch</Label>
+                <Select
+                  value={editFormData.transaction_type}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, transaction_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Không đổi" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INCOME">Thu</SelectItem>
+                    <SelectItem value="EXPENSE">Chi</SelectItem>
+                    <SelectItem value="LEND">Cho vay</SelectItem>
+                    <SelectItem value="BORROW">Đi vay</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_note">Ghi chú</Label>
+                <Input
+                  id="edit_note"
+                  value={editFormData.note}
+                  onChange={(e) => setEditFormData({ ...editFormData, note: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_occurred_at">Thời gian</Label>
+                <Input
+                  id="edit_occurred_at"
+                  type="datetime-local"
+                  value={editFormData.occurred_at}
+                  onChange={(e) => setEditFormData({ ...editFormData, occurred_at: e.target.value })}
+                />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Hủy</Button>
+                <Button type="submit">Lưu</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
@@ -403,8 +511,16 @@ export default function TransactionsPage() {
             const labelMap = filterFields.reduce<Record<string, string>>((acc, f) => { acc[f.name] = f.label; return acc; }, {});
             const renderCell = (key: string, t: any) => {
               switch (key) {
-                case "wallet": return t.wallet?.name || "-";
-                case "category": return t.category?.name || "-";
+                case "wallet": {
+                  const walletId = typeof t.wallet === "object" ? t.wallet?.id : t.wallet;
+                  const walletObj = typeof t.wallet === "object" ? t.wallet : wallets.find((w) => w.id === walletId);
+                  return walletObj?.name || "-";
+                }
+                case "category": {
+                  const categoryId = typeof t.category === "object" ? t.category?.id : t.category;
+                  const categoryObj = typeof t.category === "object" ? t.category : categories.find((c) => c.id === categoryId);
+                  return categoryObj?.name || "-";
+                }
                 case "transaction_type":
                   return (
                     <span className={getTransactionTypeColor(t.transaction_type)}>
@@ -412,7 +528,12 @@ export default function TransactionsPage() {
                     </span>
                   );
                 case "amount":
-                  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: t.wallet?.currency || "VND" }).format(parseFloat(t.amount));
+                  {
+                    const walletId = typeof t.wallet === "object" ? t.wallet?.id : t.wallet;
+                    const walletObj = typeof t.wallet === "object" ? t.wallet : wallets.find((w) => w.id === walletId);
+                    const currency = walletObj?.currency || "VND";
+                    return new Intl.NumberFormat("vi-VN", { style: "currency", currency }).format(parseFloat(t.amount));
+                  }
                 case "occurred_at":
                   return t.occurred_at ? new Date(t.occurred_at).toLocaleString("vi-VN") : "-";
                 case "note":
@@ -433,6 +554,10 @@ export default function TransactionsPage() {
                 currentOrdering={new URLSearchParams(searchParams?.toString()).get("ordering") || ""}
                 renderCell={renderCell}
                 renderActions={(transaction: any) => (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(transaction)}>
+                      Sửa
+                    </Button>
                   <Button
                     variant="destructive"
                     size="sm"
@@ -440,6 +565,7 @@ export default function TransactionsPage() {
                   >
                     Xóa
                   </Button>
+                  </div>
                 )}
                 onRequestData={({ ordering, page, page_size }) => {
                   setLoading(true);

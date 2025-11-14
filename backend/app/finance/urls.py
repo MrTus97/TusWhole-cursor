@@ -6,6 +6,7 @@ from app.finance.views import (
     CategoryViewSet,
     TransactionViewSet,
     WalletViewSet,
+    FundViewSet,
 )
 from app.finance.views.filter_metadata_views import (
     transaction_filter_metadata,
@@ -19,6 +20,7 @@ router.register(r"transactions", TransactionViewSet, basename="transaction")
 router.register(
     r"category-templates", CategoryTemplateViewSet, basename="category-template"
 )
+router.register(r"funds", FundViewSet, basename="fund")
 
 urlpatterns = router.urls + [
     path("filter-metadata/wallets/", wallet_filter_metadata, name="wallet-filter-metadata"),
