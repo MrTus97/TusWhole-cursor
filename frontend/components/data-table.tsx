@@ -62,6 +62,14 @@ export function DataTable<T>({
       ? Math.max(1, Math.ceil((totalCount || 0) / effectivePageSize))
       : 1;
 
+  const startIndex =
+    totalCount > 0 && effectivePageSize > 0 ? (page - 1) * effectivePageSize + 1 : 0;
+  const endIndex =
+    totalCount > 0 && effectivePageSize > 0
+      ? Math.min(totalCount, page * effectivePageSize)
+      : 0;
+  const remainingCount = Math.max(0, (totalCount || 0) - endIndex);
+
   const getFieldForOrdering = (key: string) => {
     if (mapKeyToOrderingField) return mapKeyToOrderingField(key);
     return key;
@@ -143,6 +151,15 @@ export function DataTable<T>({
           ))}
         </TableBody>
       </Table>
+
+      <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
+        <div>
+          Hiển thị {startIndex}-{endIndex} trên {totalCount || 0} bản ghi
+        </div>
+        <div>
+          Còn {remainingCount} bản ghi
+        </div>
+      </div>
 
       {effectivePageSize ? (
         <div className="flex justify-center items-center gap-2 mt-4">

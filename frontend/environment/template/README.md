@@ -37,3 +37,4 @@ cp template/env.docker_example .env.docker
 - Chỉ commit các file `*_example` trong thư mục `template/`
 - Next.js yêu cầu file `.env.local` phải ở trong thư mục `frontend/`, không phải trong `environment/`
 
+

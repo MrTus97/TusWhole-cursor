@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth";
 import { useEffect } from "react";
 import { ModuleMenu } from "@/components/module-menu";
 import { Footer } from "@/components/footer";
-import { Wallet, CreditCard, List, Users, FileText, Settings, BookOpen } from "lucide-react";
+import { Wallet, CreditCard, List, Users, FileText, Settings, BookOpen, FolderTree } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -74,7 +74,8 @@ export default function DashboardLayout({
         icon: <Settings className="w-5 h-5" />,
         href: "/settings",
         items: [
-          { label: "Custom Fields", href: "/settings", icon: <FileText className="w-4 h-4" /> },
+          { label: "Danh mục", href: "/settings/categories", icon: <FolderTree className="w-4 h-4" /> },
+          { label: "Custom Field", href: "/settings/custom-fields", icon: <FileText className="w-4 h-4" /> },
         ],
       };
     }

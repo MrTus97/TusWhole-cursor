@@ -30,3 +30,4 @@ cp template/env.docker_example .env.docker
 - Các file `.env` và `.env.docker` không được commit vào git
 - Chỉ commit các file `*_example` trong thư mục `template/`
 
+

@@ -170,6 +170,15 @@ class ApiClient {
     const response = await this.client.post("/api/categories/occupations/", data);
     return response.data;
   }
+  
+  async updateOccupation(id: number, data: any) {
+    const response = await this.client.patch(`/api/categories/occupations/${id}/`, data);
+    return response.data;
+  }
+  
+  async deleteOccupation(id: number) {
+    await this.client.delete(`/api/categories/occupations/${id}/`);
+  }
 
   // Custom Fields methods
   async getCustomFields(params?: any) {
